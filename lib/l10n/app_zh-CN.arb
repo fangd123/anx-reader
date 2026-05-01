@@ -115,8 +115,59 @@
   "importSupportTypes": "支持 {types}",
   "importNBooksNotSupport": "{count, plural, other{{count} 本书暂不支持}}",
   "importImportNBooks": "{count, plural, other{导入 {count} 本书}}",
+  "bookshelfImportLocal": "导入本地书籍",
+  "bookshelfImportOpds": "浏览 OPDS 书源",
   "bookshelfTips_1": "书架上没有书",
   "bookshelfTips_2": "点击添加按钮，添加一本 epub ！",
+  "opdsCatalogsTitle": "OPDS 书源",
+  "opdsCatalogsEmpty": "还没有 OPDS 书源，添加后即可浏览并导入书籍。",
+  "opdsAddCatalog": "添加书源",
+  "opdsEditCatalog": "编辑书源",
+  "opdsCatalogNameLabel": "书源名称",
+  "opdsCatalogUrlLabel": "书源地址",
+  "opdsCatalogUsernameLabel": "用户名",
+  "opdsCatalogPasswordLabel": "密码",
+  "opdsCatalogInvalidUrl": "请输入有效的 OPDS 地址",
+  "opdsDeleteCatalogConfirm": "删除书源“{name}”？",
+  "@opdsDeleteCatalogConfirm": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "opdsNavigationSection": "目录",
+  "opdsBooksSection": "书籍",
+  "opdsSearchTitle": "搜索 OPDS",
+  "opdsSearchHint": "搜索书名或作者",
+  "opdsQuickImportTooltip": "直接导入",
+  "opdsDownloadingTitle": "正在下载",
+  "opdsDownloadingBook": "正在下载《{title}》",
+  "@opdsDownloadingBook": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "opdsDownloadFailed": "下载书籍失败：{error}",
+  "@opdsDownloadFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "opdsFeedLoadFailed": "加载 OPDS 目录失败：{error}",
+  "@opdsFeedLoadFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "opdsFeedEmpty": "这个目录里没有可浏览的子目录或书籍。",
+  "opdsAvailableFormats": "可用格式",
+  "opdsNoSupportedDownload": "这个条目没有找到可直接导入的受支持格式。",
+  "opdsImportFormat": "导入 {format}",
+  "@opdsImportFormat": {
+    "placeholders": {
+      "format": {}
+    }
+  },
+  "commonSearch": "搜索",
   "statisticsTips_1": "选定的时间段里没有阅读过呢",
   "statisticsTips_2": "问渠哪得清如许，为有源头活水来",
   "notesTips_1": "还没有笔记",

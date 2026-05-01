@@ -115,8 +115,59 @@
   "importSupportTypes": "Support types: {types}",
   "importNBooksNotSupport": "{count, plural, one{1 book not support yet} other{{count} books not support yet}}",
   "importImportNBooks": "{count, plural, one{Import 1 book} other{Import {count} books}}",
+  "bookshelfImportLocal": "Import Local Books",
+  "bookshelfImportOpds": "Browse OPDS Catalogs",
   "bookshelfTips_1": "There are no books.",
   "bookshelfTips_2": "Click the add button to add a book!",
+  "opdsCatalogsTitle": "OPDS Catalogs",
+  "opdsCatalogsEmpty": "No OPDS catalogs yet. Add one to browse and import books.",
+  "opdsAddCatalog": "Add Catalog",
+  "opdsEditCatalog": "Edit Catalog",
+  "opdsCatalogNameLabel": "Catalog Name",
+  "opdsCatalogUrlLabel": "Catalog URL",
+  "opdsCatalogUsernameLabel": "Username",
+  "opdsCatalogPasswordLabel": "Password",
+  "opdsCatalogInvalidUrl": "Enter a valid OPDS URL",
+  "opdsDeleteCatalogConfirm": "Delete catalog \"{name}\"?",
+  "@opdsDeleteCatalogConfirm": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "opdsNavigationSection": "Navigation",
+  "opdsBooksSection": "Books",
+  "opdsSearchTitle": "Search OPDS",
+  "opdsSearchHint": "Search title or author",
+  "opdsQuickImportTooltip": "Import directly",
+  "opdsDownloadingTitle": "Downloading",
+  "opdsDownloadingBook": "Downloading \"{title}\"",
+  "@opdsDownloadingBook": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "opdsDownloadFailed": "Failed to download book: {error}",
+  "@opdsDownloadFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "opdsFeedLoadFailed": "Failed to load OPDS feed: {error}",
+  "@opdsFeedLoadFailed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "opdsFeedEmpty": "No books or sub-catalogs found in this feed.",
+  "opdsAvailableFormats": "Available Formats",
+  "opdsNoSupportedDownload": "No supported download format was found for this entry.",
+  "opdsImportFormat": "Import {format}",
+  "@opdsImportFormat": {
+    "placeholders": {
+      "format": {}
+    }
+  },
+  "commonSearch": "Search",
   "statisticsTips_1": "No reading in the selected time period.",
   "statisticsTips_2": "A book is a dream that you hold in your hands.",
   "notesTips_1": "There are no notes.",

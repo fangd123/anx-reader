@@ -28,6 +28,7 @@ import 'package:anx_reader/models/chapter_split_presets.dart';
 import 'package:anx_reader/models/chapter_split_rule.dart';
 import 'package:anx_reader/models/font_model.dart';
 import 'package:anx_reader/models/book_notes_state.dart';
+import 'package:anx_reader/models/opds_catalog.dart';
 import 'package:anx_reader/models/read_theme.dart';
 import 'package:anx_reader/models/reading_info.dart';
 import 'package:anx_reader/models/reading_rules.dart';
@@ -169,7 +170,7 @@ class Prefs extends ChangeNotifier {
   }
 
   Color get themeColor {
-    int colorValue = prefs.getInt('themeColor') ?? Colors.blue.value;
+    int colorValue = prefs.getInt('themeColor') ?? Colors.blue.toARGB32();
     return Color(colorValue);
   }
 
@@ -982,6 +983,28 @@ class Prefs extends ChangeNotifier {
   set userPrompts(List<UserPrompt> prompts) {
     final jsonList = prompts.map((p) => p.toJson()).toList();
     prefs.setString(_userPromptsKey, jsonEncode(jsonList));
+    notifyListeners();
+  }
+
+  List<OpdsCatalog> get opdsCatalogs {
+    final jsonString = prefs.getString('opdsCatalogs');
+    if (jsonString == null || jsonString.isEmpty) return const [];
+
+    try {
+      final List<dynamic> jsonList = jsonDecode(jsonString) as List<dynamic>;
+      return jsonList
+          .whereType<Map>()
+          .map((json) => OpdsCatalog.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+    } catch (e) {
+      AnxLog.severe('Error loading OPDS catalogs: $e');
+      return const [];
+    }
+  }
+
+  set opdsCatalogs(List<OpdsCatalog> catalogs) {
+    final jsonList = catalogs.map((catalog) => catalog.toJson()).toList();
+    prefs.setString('opdsCatalogs', jsonEncode(jsonList));
     notifyListeners();
   }
 

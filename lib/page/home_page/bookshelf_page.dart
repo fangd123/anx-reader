@@ -9,6 +9,7 @@ import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/tag.dart';
+import 'package:anx_reader/page/opds/opds_catalog_page.dart';
 import 'package:anx_reader/providers/book_list.dart';
 import 'package:anx_reader/providers/book_filters.dart';
 import 'package:anx_reader/providers/tags.dart';
@@ -97,7 +98,42 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
       fileList = files.map((file) => File(file.path!)).toList();
     }
 
+    if (!mounted) return;
     importBookList(fileList, context, ref);
+  }
+
+  Future<void> _showImportMenu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.upload_file_outlined),
+                title: Text(L10n.of(context).bookshelfImportLocal),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _importBook();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.public_outlined),
+                title: Text(L10n.of(context).bookshelfImportOpds),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const OpdsCatalogPage(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -481,7 +517,8 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
                   fileName: file.name,
                 ));
               }
-              importBookList(files, context, ref);
+              if (!mounted) return;
+              importBookList(files, this.context, ref);
               setState(() {
                 _dragging = false;
               });
@@ -563,7 +600,7 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
         const SyncButton(),
         IconButton(
           icon: const Icon(Icons.add),
-          onPressed: _importBook,
+          onPressed: _showImportMenu,
         ),
         IconButton(
             icon: const Icon(Icons.sort),
