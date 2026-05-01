@@ -1,0 +1,161 @@
+## 1.0.3
+
+Updated README with badges, sponsor section, and improved documentation.
+
+- **DOCS**: Improve READMEs with badges, sponsor section, and vertex_ai deprecation ([#90](https://github.com/davidmigloz/ai_clients_dart/issues/90)). ([5741f2f3](https://github.com/davidmigloz/ai_clients_dart/commit/5741f2f3bcecdc947235aa10e9a7534baef95741))
+
+## 1.0.2
+
+Internal improvements to build tooling and package publishing configuration.
+
+- **REFACTOR**: Migrate API skills to the shared api-toolkit CLI ([#74](https://github.com/davidmigloz/ai_clients_dart/issues/74)). ([923cc83e](https://github.com/davidmigloz/ai_clients_dart/commit/923cc83e9d72be370b2af8580a41970604df0787))
+- **CHORE**: Add .pubignore to exclude .agents/ and specs/ from publishing ([#78](https://github.com/davidmigloz/ai_clients_dart/issues/78)). ([0ff199bf](https://github.com/davidmigloz/ai_clients_dart/commit/0ff199bf9c7b4cc090cde73b994cca5ae5d3eaf9))
+
+## 1.0.1
+
+Unified equality helpers across packages and updated dependencies.
+
+- **REFACTOR**: Unify equality_helpers.dart across packages ([#67](https://github.com/davidmigloz/ai_clients_dart/issues/67)). ([ec2897f8](https://github.com/davidmigloz/ai_clients_dart/commit/ec2897f8e5b5370a78e8b95832fde503cfaa5dd7))
+- **CHORE**: Bump googleapis from 15.0.0 to 16.0.0 and Dart SDK to 3.9.0 ([#52](https://github.com/davidmigloz/ai_clients_dart/issues/52)). ([eae130b7](https://github.com/davidmigloz/ai_clients_dart/commit/eae130b785d38074e85d460eefa9210f4acdf215))
+- **CI**: Add GitHub Actions test workflow ([#50](https://github.com/davidmigloz/ai_clients_dart/issues/50)). ([6c5f079a](https://github.com/davidmigloz/ai_clients_dart/commit/6c5f079ac94e78cad66071ad9eb8ad51db974695))
+
+## 1.0.0
+
+> Note: This release has breaking changes.
+
+**TL;DR**: Complete reimplementation with a new architecture, minimal dependencies, unified resource-based API, and full ChromaDB v2 API coverage. Includes new Search API, Functions, multi-tenant management, automatic retry, and comprehensive exception handling.
+
+### What's new
+
+- **Complete ChromaDB v2 API coverage**: All endpoints implemented.
+  - **Collections API**: create, get, list, update, delete, count, fork.
+  - **Records API**: add, update, upsert, get, query, search, delete, count.
+  - **Search API**: Advanced hybrid search with filtering, grouping, ranking, and pagination.
+  - **Functions API**: attach, get, detach serverless functions.
+  - **Multi-tenant**: Full tenant and database management.
+  - **Health API**: heartbeat, version, pre-flight checks, healthcheck, reset.
+  - **Auth API**: User identity retrieval.
+- **Architecture**:
+  - Interceptor chain (Auth → Logging → Error).
+  - **Authentication**: API key, Bearer token, custom OAuth via `AuthProvider`.
+  - **Retry** with exponential backoff + jitter (configurable `RetryPolicy`).
+  - Central `ChromaConfig` (timeouts, retry policy, log level, baseUrl, tenant, database).
+- **High-level wrapper** (`ChromaCollection`):
+  - Automatic embedding generation from documents, images, or URIs.
+  - Convenient query methods accepting text instead of embeddings.
+  - DataLoader interface for loading content from URIs.
+  - Input validation and error handling.
+- **Convenience constructors**: `ChromaClient.local()`, `ChromaClient.withApiKey()`.
+- **Minimal dependencies**: Only `http` and `logging`.
+- **Testing**: 200+ unit tests covering models, resources, and error handling.
+
+### Breaking Changes
+
+- **Resource-based API**: Methods reorganized under strongly-typed resources:
+  - `client.health.*` (heartbeat, version, healthcheck, reset)
+  - `client.collections.*` (low-level collection CRUD)
+  - `client.records(collectionId).*` (record operations)
+  - `client.functions(collectionId).*` (serverless functions)
+  - `client.tenants.*`, `client.databases.*` (multi-tenant)
+  - `client.auth.*` (identity)
+- **Configuration**: New `ChromaConfig` with `AuthProvider` pattern (API key / bearer / custom).
+- **Collection wrapper**: `Collection` class renamed to `ChromaCollection`.
+- **Metadata access**: `collection.metadata` → `collection.metadata.metadata` for custom metadata.
+- **Modify parameters**: `name` → `newName`, `metadata` → `newMetadata`.
+- **Health methods moved**: `client.heartbeat()` → `client.health.heartbeat()`.
+- **Return types**: Primitives replaced with response objects (`HeartbeatResponse`, `VersionResponse`).
+- **Default includes changed**: `get()`, `peek()`, `query()` no longer include embeddings by default.
+- **Exceptions**: Replaced `ChromaApiClientException` with typed hierarchy:
+  - `ApiException`, `AuthenticationException`, `NotFoundException`, `ConflictException`, `RateLimitException`, `ServerException`, `ValidationException`, `TimeoutException`, `AbortedException`.
+
+See **[MIGRATION.md](MIGRATION.md)** for step-by-step examples and mapping tables.
+
+### Commits
+
+- **BREAKING** **FEAT**: Complete v1.0.0 reimplementation ([#9](https://github.com/davidmigloz/ai_clients_dart/issues/9)). ([caae5d24](https://github.com/davidmigloz/ai_clients_dart/commit/caae5d24992e6a2cbc7f55b2231083793f1c625f))
+- **FEAT**: Add support for custom HTTP headers ([#20](https://github.com/davidmigloz/ai_clients_dart/issues/20)). ([c1cc81cd](https://github.com/davidmigloz/ai_clients_dart/commit/c1cc81cdd8b2e612cb4edc62fc494a777563f7d3))
+- **REFACTOR**: Align client package architecture across SDK packages ([#37](https://github.com/davidmigloz/ai_clients_dart/issues/37)). ([cf741ee1](https://github.com/davidmigloz/ai_clients_dart/commit/cf741ee12ac45667b86fe166b33dad37d85962b2))
+- **REFACTOR**: Align API surface across all SDK packages ([#36](https://github.com/davidmigloz/ai_clients_dart/issues/36)). ([ed969cc7](https://github.com/davidmigloz/ai_clients_dart/commit/ed969cc7ad964da60702f2c97c14851ebe9aa992))
+- **DOCS**: Pre-release documentation fixes ([#43](https://github.com/davidmigloz/ai_clients_dart/issues/43)). ([f16aab76](https://github.com/davidmigloz/ai_clients_dart/commit/f16aab76fcd31ef1a0ba5a036d22efecced29e07))
+- **DOCS**: Refactors repository URLs to new location. ([76835268](https://github.com/davidmigloz/ai_clients_dart/commit/768352686cdc91529fd7d37a288d69a28cc825f9))
+
+## 0.3.0+1
+
+- **REFACTOR**: Fix pub format warnings ([#809](https://github.com/davidmigloz/langchain_dart/issues/809)). ([640cdefb](https://github.com/davidmigloz/langchain_dart/commit/640cdefbede9c0a0182fb6bb4005a20aa6f35635))
+
+## 0.3.0
+
+> Note: This release has breaking changes.
+
+- **FEAT**: Upgrade to http v1.5.0 ([#785](https://github.com/davidmigloz/langchain_dart/issues/785)). ([f7c87790](https://github.com/davidmigloz/langchain_dart/commit/f7c8779011015b5a4a7f3a07dca32bde1bb2ea88))
+- **BREAKING** **BUILD**: Require Dart >=3.8.0 ([#792](https://github.com/davidmigloz/langchain_dart/issues/792)). ([b887f5c6](https://github.com/davidmigloz/langchain_dart/commit/b887f5c62e307b3a510c5049e3d1fbe7b7b4f4c9))
+
+## 0.2.3
+
+- **FEAT**: Migrate to Freezed v3 ([#773](https://github.com/davidmigloz/langchain_dart/issues/773)). ([f87c8c03](https://github.com/davidmigloz/langchain_dart/commit/f87c8c03711ef382d2c9de19d378bee92e7631c1))
+
+## 0.2.2
+
+- **BUILD**: Update dependencies ([#751](https://github.com/davidmigloz/langchain_dart/issues/751)). ([250a3c6](https://github.com/davidmigloz/langchain_dart/commit/250a3c6a6c1815703a61a142ba839c0392a31015))
+
+## 0.2.1
+
+- **FEAT**: Update dependencies (requires Dart 3.6.0) ([#709](https://github.com/davidmigloz/langchain_dart/issues/709)). ([9e3467f7](https://github.com/davidmigloz/langchain_dart/commit/9e3467f7caabe051a43c0eb3c1110bc4a9b77b81))
+- **REFACTOR**: Remove fetch_client dependency in favor of http v1.3.0 ([#659](https://github.com/davidmigloz/langchain_dart/issues/659)). ([0e0a685c](https://github.com/davidmigloz/langchain_dart/commit/0e0a685c376895425dbddb0f9b83758c700bb0c7))
+- **FIX**: Fix linter issues ([#656](https://github.com/davidmigloz/langchain_dart/issues/656)). ([88a79c65](https://github.com/davidmigloz/langchain_dart/commit/88a79c65aad23bcf5859e58a7375a4b686cf02ef))
+
+## 0.2.0+2
+
+- **REFACTOR**: Add new lint rules and fix issues ([#621](https://github.com/davidmigloz/langchain_dart/issues/621)). ([60b10e00](https://github.com/davidmigloz/langchain_dart/commit/60b10e008acf55ebab90789ad08d2449a44b69d8))
+- **REFACTOR**: Upgrade api clients generator version ([#610](https://github.com/davidmigloz/langchain_dart/issues/610)). ([0c8750e8](https://github.com/davidmigloz/langchain_dart/commit/0c8750e85b34764f99b6e34cc531776ffe8fba7c))
+
+## 0.2.0+1
+
+- **FIX**: Fix deserialization of sealed classes ([#435](https://github.com/davidmigloz/langchain_dart/issues/435)). ([7b9cf223](https://github.com/davidmigloz/langchain_dart/commit/7b9cf223e42eae8496f864ad7ef2f8d0dca45678))
+
+## 0.2.0
+
+- **FIX**: Have the == implementation use Object instead of dynamic ([#334](https://github.com/davidmigloz/langchain_dart/issues/334)). ([89f7b0b9](https://github.com/davidmigloz/langchain_dart/commit/89f7b0b94144c216de19ec7244c48f3c34c2c635))
+
+## 0.1.2
+
+- **FEAT**: Update meta and test dependencies ([#331](https://github.com/davidmigloz/langchain_dart/issues/331)). ([912370ee](https://github.com/davidmigloz/langchain_dart/commit/912370ee0ba667ee9153303395a457e6caf5c72d))
+
+## 0.1.1+1
+
+- **DOCS**: Update CHANGELOG.md. ([d0d46534](https://github.com/davidmigloz/langchain_dart/commit/d0d46534565d6f52d819d62329e8917e00bc7030))
+
+## 0.1.1
+
+ - Update a dependency to the latest release.
+
+## 0.1.0+2
+
+- **FIX**: Decode JSON responses as UTF-8 ([#234](https://github.com/davidmigloz/langchain_dart/issues/234)) ([#235](https://github.com/davidmigloz/langchain_dart/issues/235)). ([29347763](https://github.com/davidmigloz/langchain_dart/commit/29347763fe04cb7c9199e33c643dbc585de0a7b8))
+
+## 0.1.0+1
+
+- **DOCS**: Add public_member_api_docs lint rule and document missing APIs ([#223](https://github.com/davidmigloz/langchain_dart/issues/223)). ([52380433](https://github.com/davidmigloz/langchain_dart/commit/523804331783970870b023946c016be6c0797920))
+
+## 0.1.0
+
+> Note: This release has breaking changes.
+
+- **BREAKING** **FEAT**: Multi-modal and tenants support ([#210](https://github.com/davidmigloz/langchain_dart/issues/210)). ([bfb0d89c](https://github.com/davidmigloz/langchain_dart/commit/bfb0d89cf82881090f6a50ee4d70b70f62e4302e))
+
+## 0.0.3
+
+- **DOCS**: Fix invalid package topics. ([f81b833a](https://github.com/davidmigloz/langchain_dart/commit/f81b833aae33e0a945ef4450da12344886224bae))
+- **DOCS**: Add topics to pubspecs. ([8c1d6297](https://github.com/davidmigloz/langchain_dart/commit/8c1d62970710cc326fd5930101918aaf16b18f74))
+
+## 0.0.2
+
+- **REFACTOR**: Update generated Chroma API client ([#142](https://github.com/davidmigloz/langchain_dart/issues/142)). ([4f0e7379](https://github.com/davidmigloz/langchain_dart/commit/4f0e7379f4408fe03a6433e3bdb6ebbe2262cbbc))
+
+## 0.0.1
+
+- **FEAT**: Add Chroma embedding database API client ([#140](https://github.com/davidmigloz/langchain_dart/issues/140)). ([5fdcbc52](https://github.com/davidmigloz/langchain_dart/commit/5fdcbc528c1bbac1114a89433cf72bd8870fa4eb))
+
+## 0.0.1-dev.1
+
+- Bootstrap package.

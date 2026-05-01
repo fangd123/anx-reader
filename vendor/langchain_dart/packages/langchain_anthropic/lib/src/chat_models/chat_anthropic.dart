@@ -1,0 +1,301 @@
+import 'package:anthropic_sdk_dart/anthropic_sdk_dart.dart' as a;
+import 'package:http/http.dart' as http;
+import 'package:langchain_core/chat_models.dart';
+import 'package:langchain_core/language_models.dart';
+import 'package:langchain_core/prompts.dart';
+import 'mappers.dart';
+import 'types.dart';
+
+/// Wrapper around [Anthropic Messages API](https://docs.anthropic.com/en/api/messages)
+/// (aka Claude API).
+///
+/// Example:
+/// ```dart
+/// final chatModel = ChatAnthropic(apiKey: '...');
+/// final messages = [
+///   ChatMessage.system('You are a helpful assistant that translates English to French.'),
+///   ChatMessage.humanText('I love programming.'),
+/// ];
+/// final prompt = PromptValue.chat(messages);
+/// final res = await llm.invoke(prompt);
+/// ```
+///
+/// - Docs: https://docs.anthropic.com
+///
+/// ### Authentication
+///
+/// The Anthropic API uses API keys for authentication. Visit your
+/// [API Keys](https://console.anthropic.com/settings/keys) page to retrieve
+/// the API key you'll use in your requests.
+///
+/// ### Available models
+///
+/// The following models are available:
+/// - `claude-sonnet-4-5`
+/// - `claude-haiku-4-5`
+/// - `claude-opus-4-5`
+///
+/// Mind that the list may not be up-to-date.
+/// See https://platform.claude.com/docs/en/about-claude/models for the updated list.
+///
+/// ### Call options
+///
+/// You can configure the parameters that will be used when calling the
+/// chat completions API in several ways:
+///
+/// **Default options:**
+///
+/// Use the [defaultOptions] parameter to set the default options. These
+/// options will be used unless you override them when generating completions.
+///
+/// ```dart
+/// final chatModel = ChatAnthropic(
+///   apiKey: anthropicApiKey,
+///   defaultOptions: const ChatAnthropicOptions(
+///     temperature: 0.9,
+///     maxTokens: 100,
+///   ),
+/// );
+/// ```
+///
+/// **Call options:**
+///
+/// You can override the default options when invoking the model:
+///
+/// ```dart
+/// final res = await chatModel.invoke(
+///   prompt,
+///   options: const ChatAnthropicOptions(temperature: 0.5),
+/// );
+/// ```
+///
+/// **Bind:**
+///
+/// You can also change the options in a [Runnable] pipeline using the bind
+/// method.
+///
+/// In this example, we are using two totally different models for each
+/// question:
+///
+/// ```dart
+/// final chatModel = ChatAnthropic(apiKey: anthropicApiKey);
+/// const outputParser = StringOutputParser();
+/// final prompt1 = PromptTemplate.fromTemplate('How are you {name}?');
+/// final prompt2 = PromptTemplate.fromTemplate('How old are you {name}?');
+/// final chain = Runnable.fromMap({
+///   'q1': prompt1 | chatModel.bind(const ChatAnthropicOptions(model: 'claude-sonnet-4-5')) | outputParser,
+///   'q2': prompt2 | chatModel.bind(const ChatAnthropicOptions(model: 'claude-haiku-4-5')) | outputParser,
+/// });
+/// final res = await chain.invoke({'name': 'David'});
+/// ```
+///
+/// ### Extended Thinking
+///
+/// Claude's extended thinking feature enables the model to show its internal
+/// reasoning process before providing the final answer. This is particularly
+/// useful for complex reasoning tasks.
+///
+/// ```dart
+/// final chatModel = ChatAnthropic(
+///   apiKey: anthropicApiKey,
+///   defaultOptions: ChatAnthropicOptions(
+///     model: 'claude-sonnet-4-5',
+///     maxTokens: 8192,
+///     thinking: ChatAnthropicThinking.enabled(budgetTokens: 4096),
+///   ),
+/// );
+///
+/// final prompt = PromptValue.string('Solve this complex problem: ...');
+/// final res = await chatModel.invoke(prompt);
+/// // The response will include thinking blocks showing Claude's reasoning
+/// ```
+///
+/// The thinking blocks will appear in the response content and can be
+/// accessed through the message's content blocks. The `budgetTokens` parameter
+/// controls how many tokens Claude can use for thinking (minimum 1024), and
+/// counts towards your `maxTokens` limit.
+///
+/// ### Advance
+///
+/// #### Custom HTTP client
+///
+/// You can always provide your own implementation of `http.Client` for further
+/// customization:
+///
+/// ```dart
+/// final client = ChatAnthropic(
+///   apiKey: 'ANTHROPIC_API_KEY',
+///   client: MyHttpClient(),
+/// );
+/// ```
+///
+/// #### Using a proxy
+///
+/// ##### HTTP proxy
+///
+/// You can use your own HTTP proxy by overriding the `baseUrl` and providing
+/// your required `headers`:
+///
+/// ```dart
+/// final client = ChatAnthropic(
+///   baseUrl: 'https://my-proxy.com',
+///   headers: {'x-my-proxy-header': 'value'},
+/// );
+/// ```
+///
+/// If you need further customization, you can always provide your own
+/// `http.Client`.
+///
+/// ##### SOCKS5 proxy
+///
+/// To use a SOCKS5 proxy, you can use the
+/// [`socks5_proxy`](https://pub.dev/packages/socks5_proxy) package and a
+/// custom `http.Client`.
+class ChatAnthropic extends BaseChatModel<ChatAnthropicOptions> {
+  /// Create a new [ChatAnthropic] instance.
+  ///
+  /// Main configuration options:
+  /// - `apiKey`: your Anthropic API key. You can find your API key in the
+  ///   [Anthropic dashboard](https://console.anthropic.com/settings/keys).
+  /// - [ChatAnthropic.defaultOptions]
+  ///
+  /// Advance configuration options:
+  /// - `baseUrl`: the base URL to use. Defaults to Anthropic's API URL. You can
+  ///   override this to use a different API URL, or to use a proxy.
+  /// - `headers`: global headers to send with every request. You can use
+  ///   this to set custom headers, or to override the default headers.
+  /// - `queryParams`: global query parameters to send with every request. You
+  ///   can use this to set custom query parameters.
+  /// - `client`: the HTTP client to use. You can set your own HTTP client if
+  ///   you need further customization (e.g. to use a Socks5 proxy).
+  ChatAnthropic({
+    final String? apiKey,
+    final String baseUrl = 'https://api.anthropic.com',
+    final Map<String, String>? headers,
+    final Map<String, dynamic>? queryParams,
+    final http.Client? client,
+    super.defaultOptions = const ChatAnthropicOptions(
+      model: defaultModel,
+      maxTokens: defaultMaxTokens,
+    ),
+  }) : _client = a.AnthropicClient(
+         config: a.AnthropicConfig(
+           authProvider: apiKey != null && apiKey.isNotEmpty
+               ? a.ApiKeyProvider(apiKey)
+               : null,
+           baseUrl: baseUrl,
+           defaultHeaders: headers ?? const {},
+           defaultQueryParams:
+               queryParams?.map((k, v) => MapEntry(k, v.toString())) ??
+               const {},
+         ),
+         httpClient: client,
+       );
+
+  /// A client for interacting with Anthropic API.
+  final a.AnthropicClient _client;
+
+  @override
+  String get modelType => 'anthropic-chat';
+
+  /// The default model to use unless another is specified.
+  static const defaultModel = 'claude-sonnet-4-5';
+
+  /// The default max tokens to use unless another is specified.
+  static const defaultMaxTokens = 1024;
+
+  @override
+  Future<ChatResult> invoke(
+    final PromptValue input, {
+    final ChatAnthropicOptions? options,
+  }) async {
+    final completion = await _client.messages.create(
+      createMessageRequest(
+        input.toChatMessages(),
+        options: options,
+        defaultOptions: defaultOptions,
+      ),
+    );
+    return completion.toChatResult();
+  }
+
+  @override
+  Stream<ChatResult> stream(
+    final PromptValue input, {
+    final ChatAnthropicOptions? options,
+  }) {
+    return _client.messages
+        .createStream(
+          createMessageRequest(
+            input.toChatMessages(),
+            options: options,
+            defaultOptions: defaultOptions,
+            stream: true,
+          ),
+        )
+        .transform(MessageStreamEventTransformer());
+  }
+
+  /// Counts the number of tokens in the given prompt using the Anthropic
+  /// token counting API.
+  ///
+  /// - [promptValue] The prompt to count tokens for.
+  @override
+  Future<int> countTokens(
+    final PromptValue promptValue, {
+    final ChatAnthropicOptions? options,
+  }) async {
+    final request = createMessageRequest(
+      promptValue.toChatMessages(),
+      options: options,
+      defaultOptions: defaultOptions,
+    );
+    final response = await _client.messages.countTokens(
+      a.TokenCountRequest.fromMessageCreateRequest(request),
+    );
+    return response.inputTokens;
+  }
+
+  /// Anthropic does not expose individual token IDs.
+  ///
+  /// Use [countTokens] instead to get the token count for a prompt.
+  @override
+  Future<List<int>> tokenize(
+    final PromptValue promptValue, {
+    final ChatAnthropicOptions? options,
+  }) {
+    throw UnsupportedError(
+      'Anthropic does not expose token IDs. '
+      'Use countTokens() to get the token count for a prompt.',
+    );
+  }
+
+  /// Lists the models available to the Anthropic API.
+  ///
+  /// This returns all models available for use with the Anthropic Messages API.
+  ///
+  /// Example:
+  /// ```dart
+  /// final chatModel = ChatAnthropic(apiKey: '...');
+  /// final models = await chatModel.listModels();
+  /// for (final model in models) {
+  ///   print('${model.id} - ${model.displayName}');
+  /// }
+  /// ```
+  @override
+  Future<List<ModelInfo>> listModels() async {
+    final response = await _client.models.list();
+    return response.data.map((final m) {
+      return ModelInfo(
+        id: m.id,
+        displayName: m.displayName,
+        created: m.createdAt.millisecondsSinceEpoch ~/ 1000,
+      );
+    }).toList();
+  }
+
+  @override
+  void close() {
+    _client.close();
+  }
+}

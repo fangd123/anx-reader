@@ -132,25 +132,17 @@ dependencies:
 
 dependency_overrides:
   langchain:
-    git:
-      url: https://github.com/Anxcye/langchain_dart.git
-      ref: 310fb6b3
-      path: packages/langchain
+    path: vendor/langchain_dart/packages/langchain
   langchain_core:
-    git:
-      url: https://github.com/Anxcye/langchain_dart.git
-      ref: 310fb6b3
-      path: packages/langchain_core
+    path: vendor/langchain_dart/packages/langchain_core
   langchain_openai:
-    git:
-      url: https://github.com/Anxcye/langchain_dart.git
-      ref: 310fb6b3
-      path: packages/langchain_openai
+    path: vendor/langchain_dart/packages/langchain_openai
   langchain_anthropic:
-    git:
-      url: https://github.com/Anxcye/langchain_dart.git
-      ref: 310fb6b3
-      path: packages/langchain_anthropic
+    path: vendor/langchain_dart/packages/langchain_anthropic
+  langchain_google:
+    path: vendor/langchain_dart/packages/langchain_google
+  openai_dart:
+    path: vendor/ai_clients_dart/packages/openai_dart
 #  analyzer: ^8.0.0
 
 

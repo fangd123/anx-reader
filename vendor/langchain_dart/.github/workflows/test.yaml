@@ -1,0 +1,62 @@
+name: Test
+
+on:
+  # pull_request_target is dangerous! Review external PRs code before approving to run the workflow
+  # We need this to be able to access the secrets required by the workflow
+  pull_request_target:
+    paths-ignore:
+      - 'docs/**'
+  workflow_dispatch:
+
+# Cancel currently running workflow when a new one is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Run Linter & Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: "${{ github.event.pull_request.base.sha }}" # Required for pull_request_target
+          fetch-depth: 0
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e
+        with:
+          channel: 'stable'
+
+      - name: Set-up Flutter
+        run: |
+          flutter config --no-analytics
+          dart --disable-analytics
+
+      - name: Install Melos
+        uses: bluefireteam/melos-action@705015c3d2bc4ab94201ac24accb2bbe070cf533
+        with:
+          melos-version: '7.0.0-dev.9'
+          run-bootstrap: false
+
+      - name: Bootstrap
+        uses: nick-invision/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08
+        with:
+          timeout_minutes: 5
+          max_attempts: 5
+          delay_seconds: 5
+          command: melos bootstrap
+
+      - name: Run linter
+        run: melos lint:diff
+
+      - name: Run unit tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          VERTEX_AI_PROJECT_ID: ${{ secrets.VERTEX_AI_PROJECT_ID }}
+          VERTEX_AI_SERVICE_ACCOUNT: ${{ secrets.VERTEX_AI_SERVICE_ACCOUNT }}
+        run: melos test:diff

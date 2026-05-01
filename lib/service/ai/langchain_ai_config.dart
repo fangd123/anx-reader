@@ -1,6 +1,7 @@
 import 'package:anx_reader/enums/ai_reasoning_effort.dart';
 import 'dart:convert';
 
+import 'package:anx_reader/service/ai/deepseek_support.dart';
 import 'package:langchain_anthropic/langchain_anthropic.dart';
 import 'package:langchain_google/langchain_google.dart';
 import 'package:langchain_openai/langchain_openai.dart';
@@ -18,6 +19,8 @@ class LangchainAiConfig {
     this.maxTokens,
     this.maxOutputTokens,
     this.reasoningEffort = AiReasoningEffort.auto,
+    this.deepSeekThinkingEnabled = false,
+    this.deepSeekReasoningReplayEnabled = false,
     this.additional,
   }) : headers = Map.unmodifiable(headers ?? const {});
 
@@ -31,15 +34,27 @@ class LangchainAiConfig {
   final int? maxTokens;
   final int? maxOutputTokens;
   final AiReasoningEffort reasoningEffort;
+  final bool deepSeekThinkingEnabled;
+  final bool deepSeekReasoningReplayEnabled;
   final Map<String, dynamic>? additional;
 
   ChatOpenAIOptions toOpenAIOptions() {
+    final isDeepSeek = isDeepSeekProvider(identifier: identifier, url: baseUrl);
+    final deepSeekEffort =
+        isDeepSeek ? reasoningEffort.toDeepSeekReasoningEffort() : null;
     return ChatOpenAIOptions(
       model: model.isEmpty ? null : model,
       temperature: temperature,
       topP: topP,
       maxTokens: maxTokens,
-      reasoningEffort: reasoningEffort.toOpenAiReasoningEffort(),
+      reasoningEffort: reasoningEffort.toOpenAiReasoningEffort(
+        isDeepSeek: isDeepSeek,
+      ),
+      deepSeekThinking:
+          deepSeekThinkingEnabled ? const ChatOpenAIDeepSeekThinking.enabled() : null,
+      deepSeekReasoningEffort: deepSeekEffort,
+      includeReasoningContentInAssistantMessages:
+          deepSeekReasoningReplayEnabled,
     );
   }
 
@@ -87,6 +102,15 @@ class LangchainAiConfig {
       maxTokens: parseInt(raw['max_tokens']),
       maxOutputTokens: parseInt(raw['max_output_tokens']),
       reasoningEffort: AiReasoningEffort.fromCode(raw['reasoning_effort']),
+      deepSeekThinkingEnabled: supportsDeepSeekThinking(
+        identifier: identifier,
+        url: url,
+        model: model,
+      ),
+      deepSeekReasoningReplayEnabled: isDeepSeekProvider(
+        identifier: identifier,
+        url: url,
+      ),
       additional: additional,
     );
   }
@@ -105,6 +129,15 @@ class LangchainAiConfig {
       model: model,
       baseUrl: _deriveBaseUrl(url),
       reasoningEffort: reasoningEffort,
+      deepSeekThinkingEnabled: supportsDeepSeekThinking(
+        identifier: providerId,
+        url: url,
+        model: model,
+      ),
+      deepSeekReasoningReplayEnabled: isDeepSeekProvider(
+        identifier: providerId,
+        url: url,
+      ),
     );
   }
 
@@ -118,6 +151,8 @@ class LangchainAiConfig {
     int? maxTokens,
     int? maxOutputTokens,
     AiReasoningEffort? reasoningEffort,
+    bool? deepSeekThinkingEnabled,
+    bool? deepSeekReasoningReplayEnabled,
     Map<String, dynamic>? additional,
   }) {
     return LangchainAiConfig(
@@ -131,6 +166,10 @@ class LangchainAiConfig {
       maxTokens: maxTokens ?? this.maxTokens,
       maxOutputTokens: maxOutputTokens ?? this.maxOutputTokens,
       reasoningEffort: reasoningEffort ?? this.reasoningEffort,
+      deepSeekThinkingEnabled:
+          deepSeekThinkingEnabled ?? this.deepSeekThinkingEnabled,
+      deepSeekReasoningReplayEnabled: deepSeekReasoningReplayEnabled ??
+          this.deepSeekReasoningReplayEnabled,
       additional: additional ?? this.additional,
     );
   }
@@ -231,17 +270,35 @@ LangchainAiConfig mergeConfigs(
     reasoningEffort: override.reasoningEffort != AiReasoningEffort.auto
         ? override.reasoningEffort
         : base.reasoningEffort,
+    deepSeekThinkingEnabled:
+        override.deepSeekThinkingEnabled || base.deepSeekThinkingEnabled,
+    deepSeekReasoningReplayEnabled: override.deepSeekReasoningReplayEnabled ||
+        base.deepSeekReasoningReplayEnabled,
     additional: mergeMaps(base.additional, override.additional),
   );
 }
 
 extension on AiReasoningEffort {
-  ChatOpenAIReasoningEffort? toOpenAiReasoningEffort() {
+  ChatOpenAIReasoningEffort? toOpenAiReasoningEffort({
+    required bool isDeepSeek,
+  }) {
     return switch (this) {
       AiReasoningEffort.auto => null,
       AiReasoningEffort.low => ChatOpenAIReasoningEffort.low,
       AiReasoningEffort.medium => ChatOpenAIReasoningEffort.medium,
       AiReasoningEffort.high => ChatOpenAIReasoningEffort.high,
+      AiReasoningEffort.max =>
+        isDeepSeek ? null : ChatOpenAIReasoningEffort.high,
+    };
+  }
+
+  ChatOpenAIDeepSeekReasoningEffort? toDeepSeekReasoningEffort() {
+    return switch (this) {
+      AiReasoningEffort.auto => null,
+      AiReasoningEffort.low => ChatOpenAIDeepSeekReasoningEffort.low,
+      AiReasoningEffort.medium => ChatOpenAIDeepSeekReasoningEffort.medium,
+      AiReasoningEffort.high => ChatOpenAIDeepSeekReasoningEffort.high,
+      AiReasoningEffort.max => ChatOpenAIDeepSeekReasoningEffort.max,
     };
   }
 }

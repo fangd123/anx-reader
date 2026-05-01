@@ -1,4 +1,5 @@
 import 'package:anx_reader/utils/env_var.dart';
+import 'package:anx_reader/service/ai/deepseek_support.dart';
 
 class AiServiceOption {
   const AiServiceOption({
@@ -60,7 +61,7 @@ List<AiServiceOption> buildDefaultAiServices() {
       logo: 'assets/images/deepseek.png',
       defaultUrl: 'https://api.deepseek.com/v1/chat/completions',
       defaultApiKey: 'YOUR_API_KEY',
-      defaultModel: 'deepseek-chat',
+      defaultModel: deepSeekV4ProModel,
     ),
     AiServiceOption(
       identifier: 'openrouter',

@@ -3,6 +3,7 @@ import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/ai_provider.dart';
 import 'package:anx_reader/providers/ai_providers.dart';
 import 'package:anx_reader/service/ai/ai_model_service.dart';
+import 'package:anx_reader/service/ai/deepseek_support.dart';
 import 'package:anx_reader/service/ai/index.dart';
 import 'package:anx_reader/service/ai/prompt_generate.dart';
 import 'package:anx_reader/widgets/ai/ai_stream.dart';
@@ -37,6 +38,7 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
   List<AiApiKey> _apiKeys = [];
   bool _isModified = false;
   bool _isFetchingModels = false;
+  bool _reasoningEffortManuallyChanged = false;
   final GlobalKey _fetchButtonKey = GlobalKey();
 
   @override
@@ -53,11 +55,15 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
     _urlController = TextEditingController(text: provider?.url ?? '');
     _modelController = TextEditingController(text: provider?.model ?? '');
     _selectedProtocol = provider?.protocol ?? AiProtocol.openai;
-    _reasoningEffort = provider?.reasoningEffort ?? AiReasoningEffort.auto;
+    _reasoningEffort = provider?.reasoningEffort ??
+        defaultReasoningEffortForProvider(
+          identifier: provider?.id ?? '',
+          url: provider?.url,
+        );
     _apiKeys = provider?.apiKeys.toList() ?? [];
 
     _nameController.addListener(() => setState(() => _isModified = true));
-    _urlController.addListener(() => setState(() => _isModified = true));
+    _urlController.addListener(_handleUrlChanged);
     _modelController.addListener(() => setState(() => _isModified = true));
   }
 
@@ -255,6 +261,8 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final accent = colorScheme.secondary;
+    final isDeepSeek = _isCurrentProviderDeepSeek();
+
     return FilledContainer(
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -302,10 +310,11 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
               border: const OutlineInputBorder(),
             ),
             items: [
-              DropdownMenuItem(
-                value: AiReasoningEffort.auto,
-                child: Text(l10n.settingsAiProviderReasoningEffortAuto),
-              ),
+              if (!isDeepSeek)
+                DropdownMenuItem(
+                  value: AiReasoningEffort.auto,
+                  child: Text(l10n.settingsAiProviderReasoningEffortAuto),
+                ),
               DropdownMenuItem(
                 value: AiReasoningEffort.low,
                 child: Text(l10n.settingsAiProviderReasoningEffortLow),
@@ -318,11 +327,16 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
                 value: AiReasoningEffort.high,
                 child: Text(l10n.settingsAiProviderReasoningEffortHigh),
               ),
+              DropdownMenuItem(
+                value: AiReasoningEffort.max,
+                child: Text(l10n.settingsAiProviderReasoningEffortMax),
+              ),
             ],
             onChanged: (value) {
               if (value == null) return;
               setState(() {
                 _reasoningEffort = value;
+                _reasoningEffortManuallyChanged = true;
                 _isModified = true;
               });
             },
@@ -339,7 +353,9 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  l10n.settingsAiProviderReasoningEffortHelp,
+                  isDeepSeek
+                      ? l10n.settingsAiProviderReasoningEffortHelpDeepSeek
+                      : l10n.settingsAiProviderReasoningEffortHelp,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.35,
@@ -350,6 +366,31 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _handleUrlChanged() {
+    final nextEffort = defaultReasoningEffortForProvider(
+      identifier: widget.providerId ?? '',
+      url: _urlController.text,
+    );
+    if (!_reasoningEffortManuallyChanged &&
+        _reasoningEffort != nextEffort &&
+        (_reasoningEffort == AiReasoningEffort.auto ||
+            _reasoningEffort == AiReasoningEffort.max)) {
+      setState(() {
+        _reasoningEffort = nextEffort;
+        _isModified = true;
+      });
+      return;
+    }
+    setState(() => _isModified = true);
+  }
+
+  bool _isCurrentProviderDeepSeek() {
+    return isDeepSeekProvider(
+      identifier: widget.providerId ?? '',
+      url: _urlController.text,
     );
   }
 

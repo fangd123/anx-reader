@@ -1,0 +1,37 @@
+{
+  "removed_apis": [],
+  "tool_properties": {
+    "function": {
+      "description": "Function/tool calling support",
+      "search_terms": [
+        "function calling",
+        "tools",
+        "tool_calls"
+      ]
+    }
+  },
+  "excluded_resources": [
+    "base_resource",
+    "fineTuningModels",
+    "streaming_resource",
+    "transcriptions",
+    "close",
+    "fromenvironment",
+    "withapikey",
+    "withbaseurl"
+  ],
+  "resource_to_example": {
+    "chat": "chat",
+    "embeddings": "embeddings",
+    "models": "models",
+    "fim": "fim"
+  },
+  "excluded_from_examples": [
+    "classifications",
+    "files",
+    "fineTuningModels",
+    "moderations",
+    "transcriptions"
+  ],
+  "drift_patterns": []
+}

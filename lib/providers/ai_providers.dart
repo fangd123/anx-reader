@@ -1,6 +1,7 @@
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/models/ai_provider.dart';
 import 'package:anx_reader/service/ai/ai_services.dart';
+import 'package:anx_reader/service/ai/deepseek_support.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -19,9 +20,12 @@ class AiProviders extends _$AiProviders {
 
     // Convert from JSON
     try {
-      return rawProviders
+      final providers = rawProviders
           .map((json) => AiProvider.fromJson(json as Map<String, dynamic>))
+          .map(normalizeDeepSeekProvider)
           .toList();
+      _persistIfChanged(providers);
+      return providers;
     } catch (e) {
       // If parsing fails, reinitialize
       return _initializeDefaultProviders();
@@ -72,6 +76,10 @@ class AiProviders extends _$AiProviders {
               ]
             : [],
         model: model,
+        reasoningEffort: defaultReasoningEffortForProvider(
+          identifier: option.identifier,
+          url: url,
+        ),
         keyIndex: 0,
         createdAt: now,
         updatedAt: now,
@@ -114,7 +122,7 @@ class AiProviders extends _$AiProviders {
   /// Add a new custom provider
   void addProvider(AiProvider provider) {
     final now = DateTime.now();
-    final newProvider = provider.copyWith(
+    final newProvider = normalizeDeepSeekProvider(provider).copyWith(
       id: const Uuid().v4(),
       createdAt: now,
       updatedAt: now,
@@ -127,7 +135,9 @@ class AiProviders extends _$AiProviders {
   /// Update an existing provider
   void updateProvider(AiProvider provider) {
     final now = DateTime.now();
-    final updatedProvider = provider.copyWith(updatedAt: now);
+    final updatedProvider = normalizeDeepSeekProvider(
+      provider,
+    ).copyWith(updatedAt: now);
 
     state = [
       for (final p in state)
@@ -239,6 +249,33 @@ class AiProviders extends _$AiProviders {
     final providers = Prefs().getAiProviders();
     state = providers
         .map((json) => AiProvider.fromJson(json as Map<String, dynamic>))
+        .map(normalizeDeepSeekProvider)
         .toList();
+    _persistIfChanged(state);
+  }
+
+  void _persistIfChanged(List<AiProvider> providers) {
+    final rawProviders = Prefs().getAiProviders();
+    if (rawProviders.length != providers.length) {
+      Prefs().saveAiProviders(providers);
+      return;
+    }
+
+    var changed = false;
+    for (var i = 0; i < providers.length; i++) {
+      final raw = rawProviders[i];
+      if (raw is! Map<String, dynamic>) {
+        changed = true;
+        break;
+      }
+      if (AiProvider.fromJson(raw) != providers[i]) {
+        changed = true;
+        break;
+      }
+    }
+
+    if (changed) {
+      Prefs().saveAiProviders(providers);
+    }
   }
 }

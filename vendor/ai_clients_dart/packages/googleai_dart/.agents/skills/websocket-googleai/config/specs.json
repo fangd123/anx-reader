@@ -1,0 +1,18 @@
+{
+  "specs": {
+    "live": {
+      "name": "Gemini Live API",
+      "local_file": "live-api-schema.json",
+      "experimental": false,
+      "description": "Real-time bidirectional audio/video streaming via WebSocket",
+      "websocket_endpoints": {
+        "google_ai": "wss://generativelanguage.googleapis.com/{version}/models/{model}:BidiGenerateContent",
+        "vertex_ai": "wss://{location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.{version}.PredictionService.BidiGenerateContent"
+      },
+      "fetch_mode": "local_file",
+      "source_file": "specs/live-api-schema.source.json"
+    }
+  },
+  "output_dir": "/tmp/websocket-googleai-dart",
+  "specs_dir": "packages/googleai_dart/specs"
+}

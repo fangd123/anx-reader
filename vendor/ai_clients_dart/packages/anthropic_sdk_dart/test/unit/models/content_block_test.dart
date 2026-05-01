@@ -1,0 +1,476 @@
+import 'package:anthropic_sdk_dart/anthropic_sdk_dart.dart';
+import 'package:test/test.dart';
+
+void main() {
+  group('ContentBlock', () {
+    group('TextBlock', () {
+      test('fromJson parses text block', () {
+        final json = {'type': 'text', 'text': 'Hello, world!'};
+        final block = ContentBlock.fromJson(json);
+
+        expect(block, isA<TextBlock>());
+        final textBlock = block as TextBlock;
+        expect(textBlock.text, 'Hello, world!');
+      });
+
+      test('toJson produces valid JSON', () {
+        const block = TextBlock(text: 'Test message');
+        final json = block.toJson();
+
+        expect(json['type'], 'text');
+        expect(json['text'], 'Test message');
+      });
+
+      test('copyWith creates modified copy', () {
+        const original = TextBlock(text: 'Original');
+        final modified = original.copyWith(text: 'Modified');
+
+        expect(modified.text, 'Modified');
+      });
+    });
+
+    group('ThinkingBlock', () {
+      test('fromJson parses thinking block', () {
+        final json = {
+          'type': 'thinking',
+          'thinking': 'Let me think...',
+          'signature': 'sig123',
+        };
+        final block = ContentBlock.fromJson(json);
+
+        expect(block, isA<ThinkingBlock>());
+        final thinkingBlock = block as ThinkingBlock;
+        expect(thinkingBlock.thinking, 'Let me think...');
+        expect(thinkingBlock.signature, 'sig123');
+      });
+
+      test('toJson produces valid JSON', () {
+        const block = ThinkingBlock(
+          thinking: 'Deep thought',
+          signature: 'abc123',
+        );
+        final json = block.toJson();
+
+        expect(json['type'], 'thinking');
+        expect(json['thinking'], 'Deep thought');
+        expect(json['signature'], 'abc123');
+      });
+    });
+
+    group('ToolUseBlock', () {
+      test('fromJson parses tool use block', () {
+        final json = {
+          'type': 'tool_use',
+          'id': 'tu_123',
+          'name': 'get_weather',
+          'input': {'city': 'London', 'unit': 'celsius'},
+        };
+        final block = ContentBlock.fromJson(json);
+
+        expect(block, isA<ToolUseBlock>());
+        final toolUse = block as ToolUseBlock;
+        expect(toolUse.id, 'tu_123');
+        expect(toolUse.name, 'get_weather');
+        expect(toolUse.input, {'city': 'London', 'unit': 'celsius'});
+      });
+
+      test('toJson produces valid JSON', () {
+        const block = ToolUseBlock(
+          id: 'tu_456',
+          name: 'search',
+          input: {'query': 'Dart programming'},
+        );
+        final json = block.toJson();
+
+        expect(json['type'], 'tool_use');
+        expect(json['id'], 'tu_456');
+        expect(json['name'], 'search');
+        expect(json['input'], {'query': 'Dart programming'});
+      });
+
+      test('copyWith creates modified copy', () {
+        const original = ToolUseBlock(
+          id: 'tu_1',
+          name: 'original',
+          input: {'key': 'value'},
+        );
+        final modified = original.copyWith(name: 'modified');
+
+        expect(modified.name, 'modified');
+        expect(modified.id, 'tu_1'); // Unchanged
+        expect(modified.input, {'key': 'value'}); // Unchanged
+      });
+
+      test('parses caller metadata when present', () {
+        final json = {
+          'type': 'tool_use',
+          'id': 'tu_1',
+          'name': 'search',
+          'input': {'q': 'hello'},
+          'caller': {
+            'type': 'code_execution_20260120',
+            'tool_id': 'srvtoolu_1',
+          },
+        };
+
+        final block = ContentBlock.fromJson(json) as ToolUseBlock;
+        expect(block.caller, isA<ServerToolCaller>());
+      });
+    });
+
+    group('ServerToolUseBlock', () {
+      test('fromJson parses web search tool use block', () {
+        final json = {
+          'type': 'server_tool_use',
+          'id': 'stu_123',
+          'name': 'web_search',
+          'input': {'query': 'latest news'},
+        };
+        final block = ContentBlock.fromJson(json);
+
+        expect(block, isA<ServerToolUseBlock>());
+        final serverTool = block as ServerToolUseBlock;
+        expect(serverTool.id, 'stu_123');
+        expect(serverTool.name, 'web_search');
+        expect(serverTool.input, {'query': 'latest news'});
+      });
+    });
+
+    group('WebSearchToolResultBlock', () {
+      test('fromJson parses web search result block (success)', () {
+        final json = {
+          'type': 'web_search_tool_result',
+          'tool_use_id': 'tu_ws_123',
+          'content': <dynamic>[
+            {
+              'type': 'web_search_result',
+              'url': 'https://example.com',
+              'title': 'Example',
+              'encrypted_content': 'encrypted...',
+              'page_age': '1 day ago',
+            },
+          ],
+        };
+        final block = ContentBlock.fromJson(json);
+
+        expect(block, isA<WebSearchToolResultBlock>());
+        final result = block as WebSearchToolResultBlock;
+        expect(result.toolUseId, 'tu_ws_123');
+        expect(result.content, isA<WebSearchResultSuccess>());
+        final content = result.content as WebSearchResultSuccess;
+        expect(content.results, hasLength(1));
+        expect(content.results.first.url, 'https://example.com');
+        expect(content.results.first.title, 'Example');
+        expect(content.results.first.encryptedContent, 'encrypted...');
+        expect(content.results.first.pageAge, '1 day ago');
+      });
+
+      test('fromJson parses web search result block (error)', () {
+        final json = {
+          'type': 'web_search_tool_result',
+          'tool_use_id': 'tu_ws_err',
+          'content': {
+            'type': 'web_search_tool_result_error',
+            'error_code': 'max_results_reached',
+          },
+        };
+        final block = ContentBlock.fromJson(json);
+
+        expect(block, isA<WebSearchToolResultBlock>());
+        final result = block as WebSearchToolResultBlock;
+        expect(result.toolUseId, 'tu_ws_err');
+        expect(result.content, isA<WebSearchResultError>());
+        final error = result.content as WebSearchResultError;
+        expect(error.errorCode, 'max_results_reached');
+      });
+
+      test('roundtrip fromJson → toJson → fromJson (success)', () {
+        final json = {
+          'type': 'web_search_tool_result',
+          'tool_use_id': 'tu_ws_rt',
+          'content': <dynamic>[
+            {
+              'type': 'web_search_result',
+              'url': 'https://example.com',
+              'title': 'Example',
+              'encrypted_content': 'enc_data',
+            },
+            {
+              'type': 'web_search_result',
+              'url': 'https://other.com',
+              'title': 'Other',
+            },
+          ],
+        };
+
+        final block = ContentBlock.fromJson(json) as WebSearchToolResultBlock;
+        final reJson = block.toJson();
+        final block2 =
+            ContentBlock.fromJson(reJson) as WebSearchToolResultBlock;
+
+        expect(block2.toolUseId, block.toolUseId);
+        expect(block2.content, isA<WebSearchResultSuccess>());
+        final results = (block2.content as WebSearchResultSuccess).results;
+        expect(results, hasLength(2));
+        expect(results[0].url, 'https://example.com');
+        expect(results[1].url, 'https://other.com');
+      });
+
+      test('roundtrip fromJson → toJson → fromJson (error)', () {
+        final json = {
+          'type': 'web_search_tool_result',
+          'tool_use_id': 'tu_ws_rt_err',
+          'content': {
+            'type': 'web_search_tool_result_error',
+            'error_code': 'search_unavailable',
+          },
+        };
+
+        final block = ContentBlock.fromJson(json) as WebSearchToolResultBlock;
+        final reJson = block.toJson();
+        final block2 =
+            ContentBlock.fromJson(reJson) as WebSearchToolResultBlock;
+
+        expect(block2.toolUseId, block.toolUseId);
+        expect(block2.content, isA<WebSearchResultError>());
+        expect(
+          (block2.content as WebSearchResultError).errorCode,
+          'search_unavailable',
+        );
+      });
+    });
+
+    group('Additional tool result blocks', () {
+      test('parses web fetch tool result block', () {
+        final json = {
+          'type': 'web_fetch_tool_result',
+          'tool_use_id': 'tu_wf_1',
+          'caller': {'type': 'direct'},
+          'content': {
+            'type': 'web_fetch_result',
+            'url': 'https://example.com',
+            'content': 'Example text',
+          },
+        };
+
+        final block = ContentBlock.fromJson(json);
+        expect(block, isA<WebFetchToolResultBlock>());
+        final result = block as WebFetchToolResultBlock;
+        expect(result.toolUseId, 'tu_wf_1');
+        expect(result.caller, isA<DirectToolCaller>());
+      });
+
+      test('parses compaction block', () {
+        final json = {'type': 'compaction', 'content': 'Conversation summary'};
+
+        final block = ContentBlock.fromJson(json);
+        expect(block, isA<CompactionBlock>());
+        final compaction = block as CompactionBlock;
+        expect(compaction.content, 'Conversation summary');
+      });
+    });
+  });
+
+  group('InputContentBlock', () {
+    group('TextInputBlock', () {
+      test('factory text creates text block', () {
+        final block = InputContentBlock.text('Hello, Claude!');
+
+        expect(block, isA<TextInputBlock>());
+        expect((block as TextInputBlock).text, 'Hello, Claude!');
+      });
+
+      test('toJson produces valid JSON', () {
+        const block = TextInputBlock('Test input');
+        final json = block.toJson();
+
+        expect(json['type'], 'text');
+        expect(json['text'], 'Test input');
+      });
+
+      test('supports cache control', () {
+        const block = TextInputBlock(
+          'Cached content',
+          cacheControl: CacheControlEphemeral(),
+        );
+        final json = block.toJson();
+
+        expect(json['cache_control'], {'type': 'ephemeral'});
+      });
+    });
+
+    group('ImageInputBlock', () {
+      test('creates base64 image input', () {
+        const block = ImageInputBlock(
+          Base64ImageSource(
+            mediaType: ImageMediaType.png,
+            data: 'base64data...',
+          ),
+        );
+        final json = block.toJson();
+
+        expect(json['type'], 'image');
+        final source = json['source'] as Map<String, dynamic>;
+        expect(source['type'], 'base64');
+        expect(source['media_type'], 'image/png');
+        expect(source['data'], 'base64data...');
+      });
+
+      test('creates URL image input', () {
+        const block = ImageInputBlock(
+          UrlImageSource('https://example.com/image.png'),
+        );
+        final json = block.toJson();
+
+        expect(json['type'], 'image');
+        final source = json['source'] as Map<String, dynamic>;
+        expect(source['type'], 'url');
+        expect(source['url'], 'https://example.com/image.png');
+      });
+    });
+
+    group('ToolResultInputBlock', () {
+      test('creates tool result with text content', () {
+        const block = ToolResultInputBlock(
+          toolUseId: 'tu_123',
+          content: [ToolResultTextContent('Tool result')],
+        );
+        final json = block.toJson();
+
+        expect(json['type'], 'tool_result');
+        expect(json['tool_use_id'], 'tu_123');
+        expect(json['content'], hasLength(1));
+        expect(
+          ((json['content'] as List)[0] as Map<String, dynamic>)['type'],
+          'text',
+        );
+      });
+
+      test('text factory creates single text result', () {
+        final block = ToolResultInputBlock.text(
+          toolUseId: 'tu_789',
+          text: 'Sunny, 22°C',
+        );
+
+        expect(block.toolUseId, 'tu_789');
+        expect(block.content, hasLength(1));
+        expect(block.content!.first, isA<ToolResultTextContent>());
+        expect(
+          (block.content!.first as ToolResultTextContent).text,
+          'Sunny, 22°C',
+        );
+        expect(block.isError, isNull);
+        expect(block.cacheControl, isNull);
+      });
+
+      test('text factory supports isError and cacheControl', () {
+        final block = ToolResultInputBlock.text(
+          toolUseId: 'tu_err',
+          text: 'Error: not found',
+          isError: true,
+          cacheControl: const CacheControlEphemeral(),
+        );
+
+        expect(block.isError, isTrue);
+        expect(block.cacheControl, isNotNull);
+      });
+
+      test('InputContentBlock.toolResultText factory works', () {
+        final block = InputContentBlock.toolResultText(
+          toolUseId: 'tu_abc',
+          text: 'Result text',
+        );
+
+        expect(block, isA<ToolResultInputBlock>());
+        final toolResult = block as ToolResultInputBlock;
+        expect(toolResult.toolUseId, 'tu_abc');
+        expect(toolResult.content, hasLength(1));
+        expect(
+          (toolResult.content!.first as ToolResultTextContent).text,
+          'Result text',
+        );
+      });
+
+      test('text factory toJson produces valid JSON', () {
+        final block = ToolResultInputBlock.text(
+          toolUseId: 'tu_json',
+          text: 'Some result',
+        );
+        final json = block.toJson();
+
+        expect(json['type'], 'tool_result');
+        expect(json['tool_use_id'], 'tu_json');
+        expect(json['content'], hasLength(1));
+        final content = (json['content'] as List)[0] as Map<String, dynamic>;
+        expect(content['type'], 'text');
+        expect(content['text'], 'Some result');
+      });
+
+      test('creates error tool result', () {
+        const block = ToolResultInputBlock(
+          toolUseId: 'tu_456',
+          content: [ToolResultTextContent('Error: Not found')],
+          isError: true,
+        );
+        final json = block.toJson();
+
+        expect(json['is_error'], isTrue);
+      });
+    });
+
+    group('CompactionInputBlock', () {
+      test('round-trips compaction content', () {
+        const block = CompactionInputBlock(content: 'Compacted summary');
+        final json = block.toJson();
+
+        expect(json['type'], 'compaction');
+        expect(json['content'], 'Compacted summary');
+
+        final parsed = InputContentBlock.fromJson(json);
+        expect(parsed, isA<CompactionInputBlock>());
+        expect((parsed as CompactionInputBlock).content, 'Compacted summary');
+      });
+    });
+  });
+
+  group('ImageSource', () {
+    test('Base64ImageSource roundtrips through JSON', () {
+      const source = Base64ImageSource(
+        data: 'abc123',
+        mediaType: ImageMediaType.jpeg,
+      );
+
+      final json = source.toJson();
+      final restored = ImageSource.fromJson(json);
+
+      expect(restored, isA<Base64ImageSource>());
+      final b64 = restored as Base64ImageSource;
+      expect(b64.data, 'abc123');
+      expect(b64.mediaType, ImageMediaType.jpeg);
+    });
+
+    test('ImageMediaType.fromMimeType returns correct type', () {
+      expect(ImageMediaType.fromMimeType('image/jpeg'), ImageMediaType.jpeg);
+      expect(ImageMediaType.fromMimeType('image/png'), ImageMediaType.png);
+      expect(ImageMediaType.fromMimeType('image/gif'), ImageMediaType.gif);
+      expect(ImageMediaType.fromMimeType('image/webp'), ImageMediaType.webp);
+    });
+
+    test('ImageMediaType.fromMimeType throws on unknown type', () {
+      expect(
+        () => ImageMediaType.fromMimeType('image/bmp'),
+        throwsFormatException,
+      );
+    });
+
+    test('UrlImageSource roundtrips through JSON', () {
+      const source = UrlImageSource('https://example.com/img.png');
+
+      final json = source.toJson();
+      final restored = ImageSource.fromJson(json);
+
+      expect(restored, isA<UrlImageSource>());
+      expect((restored as UrlImageSource).url, 'https://example.com/img.png');
+    });
+  });
+}

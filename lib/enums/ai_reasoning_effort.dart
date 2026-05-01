@@ -2,7 +2,8 @@ enum AiReasoningEffort {
   auto('auto'),
   low('low'),
   medium('medium'),
-  high('high');
+  high('high'),
+  max('max');
 
   const AiReasoningEffort(this.code);
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
@@ -7,6 +8,7 @@ import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/ai_provider.dart';
 import 'package:anx_reader/providers/ai_providers.dart';
 import 'package:anx_reader/service/ai/ai_key_rotator.dart';
+import 'package:anx_reader/service/ai/deepseek_support.dart';
 import 'package:anx_reader/service/ai/langchain_ai_config.dart';
 import 'package:anx_reader/service/ai/langchain_registry.dart';
 import 'package:anx_reader/service/ai/langchain_runner.dart';
@@ -77,8 +79,6 @@ Stream<String> _generateStream({
   required LangchainAiRegistry registry,
 }) async* {
   AnxLog.info('aiGenerateStream called identifier: $identifier');
-  final sanitizedMessages = _sanitizeMessagesForPrompt(messages);
-
   LangchainAiConfig config;
 
   // Try to use new provider system first if ref is available
@@ -100,6 +100,11 @@ Stream<String> _generateStream({
             apiKey: apiKey,
             url: provider.url,
             reasoningEffort: provider.reasoningEffort,
+          );
+          final sanitizedMessages = _sanitizeMessagesForPrompt(
+            messages,
+            preserveAssistantReasoningReplay:
+                config.deepSeekReasoningReplayEnabled,
           );
 
           AnxLog.info(
@@ -137,6 +142,7 @@ Stream<String> _generateStream({
       if (rawProviders.isNotEmpty) {
         final providers = rawProviders
             .map((json) => AiProvider.fromJson(json as Map<String, dynamic>))
+            .map(normalizeDeepSeekProvider)
             .toList();
 
         AiProvider? provider;
@@ -165,6 +171,11 @@ Stream<String> _generateStream({
               apiKey: apiKey,
               url: provider.url,
               reasoningEffort: provider.reasoningEffort,
+            );
+            final sanitizedMessages = _sanitizeMessagesForPrompt(
+              messages,
+              preserveAssistantReasoningReplay:
+                  config.deepSeekReasoningReplayEnabled,
             );
 
             AnxLog.info(
@@ -222,6 +233,10 @@ Stream<String> _generateStream({
         LangchainAiConfig.fromPrefs(selectedIdentifier, overrideConfig);
     config = mergeConfigs(config, override);
   }
+  final sanitizedMessages = _sanitizeMessagesForPrompt(
+    messages,
+    preserveAssistantReasoningReplay: config.deepSeekReasoningReplayEnabled,
+  );
 
   AnxLog.info(
       'aiGenerateStream (legacy): $selectedIdentifier, model: ${config.model}, baseUrl: ${config.baseUrl}');
@@ -329,26 +344,59 @@ String _mapError(Object error) {
   return '$base${error.toString()}';
 }
 
-List<ChatMessage> _sanitizeMessagesForPrompt(List<ChatMessage> messages) {
-  return messages.map((message) {
+List<ChatMessage> sanitizeMessagesForPrompt(
+  List<ChatMessage> messages, {
+  bool preserveAssistantReasoningReplay = false,
+}) {
+  final sanitized = <ChatMessage>[];
+
+  for (final message in messages) {
     if (message is AIChatMessage) {
+      if (preserveAssistantReasoningReplay) {
+        final recovered = _recoverDeepSeekReplayMessages(message);
+        if (recovered.length != 1 || !identical(recovered.single, message)) {
+          sanitized.addAll(recovered);
+          continue;
+        }
+      }
+
       if (message.reasoningContent.isNotEmpty) {
-        return AIChatMessage(
+        if (preserveAssistantReasoningReplay) {
+          sanitized.add(message);
+          continue;
+        }
+        sanitized.add(AIChatMessage(
           content: message.content,
           toolCalls: message.toolCalls,
-        );
+        ));
+        continue;
       }
       final plainText = reasoningContentToPlainText(message.content);
       if (plainText == message.content) {
-        return message;
+        sanitized.add(message);
+        continue;
       }
-      return AIChatMessage(
+      sanitized.add(AIChatMessage(
         content: plainText,
         toolCalls: message.toolCalls,
-      );
+      ));
+      continue;
     }
-    return message;
-  }).toList(growable: false);
+
+    sanitized.add(message);
+  }
+
+  return sanitized;
+}
+
+List<ChatMessage> _sanitizeMessagesForPrompt(
+  List<ChatMessage> messages, {
+  bool preserveAssistantReasoningReplay = false,
+}) {
+  return sanitizeMessagesForPrompt(
+    messages,
+    preserveAssistantReasoningReplay: preserveAssistantReasoningReplay,
+  );
 }
 
 String? _latestUserMessage(List<ChatMessage> messages) {
@@ -359,4 +407,162 @@ String? _latestUserMessage(List<ChatMessage> messages) {
     }
   }
   return null;
+}
+
+List<ChatMessage> _recoverDeepSeekReplayMessages(AIChatMessage message) {
+  if (message.toolCalls.isNotEmpty || message.reasoningContent.isNotEmpty) {
+    return [message];
+  }
+
+  final parsed = parseReasoningContent(message.content);
+  if (parsed.timeline.isEmpty) {
+    return [message];
+  }
+
+  final recovered = <ChatMessage>[];
+  var cursor = 0;
+  var replayRound = 0;
+
+  while (cursor < parsed.timeline.length) {
+    final reasoningBuffer = StringBuffer();
+    while (cursor < parsed.timeline.length) {
+      final entry = parsed.timeline[cursor];
+      if (entry.type != ParsedReasoningEntryType.reply ||
+          entry.section != ParsedReasoningSection.reasoning) {
+        break;
+      }
+      final text = entry.text;
+      if (text != null) {
+        reasoningBuffer.write(text);
+      }
+      cursor += 1;
+    }
+
+    final reasoning = reasoningBuffer.toString();
+    if (cursor >= parsed.timeline.length) {
+      if (reasoning.isNotEmpty) {
+        recovered.add(
+          AIChatMessage(
+            content: '',
+            reasoningContent: reasoning,
+          ),
+        );
+      }
+      break;
+    }
+
+    final current = parsed.timeline[cursor];
+    if (current.type == ParsedReasoningEntryType.tool) {
+      replayRound += 1;
+      final toolSteps = <ParsedToolStep>[];
+      while (cursor < parsed.timeline.length &&
+          parsed.timeline[cursor].type == ParsedReasoningEntryType.tool) {
+        final step = parsed.timeline[cursor].toolStep;
+        if (step != null) {
+          toolSteps.add(step);
+        }
+        cursor += 1;
+      }
+
+      if (toolSteps.isNotEmpty) {
+        final assistantToolCalls = <AIChatMessageToolCall>[];
+        final toolMessages = <ToolChatMessage>[];
+
+        for (var i = 0; i < toolSteps.length; i++) {
+          final step = toolSteps[i];
+          final toolCallId = 'deepseek_replay_${replayRound}_${i + 1}';
+          final rawInput =
+              step.input?.trim().isNotEmpty == true ? step.input!.trim() : '{}';
+          assistantToolCalls.add(
+            AIChatMessageToolCall(
+              id: toolCallId,
+              name: step.name,
+              argumentsRaw: rawInput,
+              arguments: _decodeToolCallArguments(rawInput),
+            ),
+          );
+          toolMessages.add(
+            ToolChatMessage(
+              toolCallId: toolCallId,
+              content: _toolObservationForReplay(step),
+            ),
+          );
+        }
+
+        recovered.add(
+          AIChatMessage(
+            content: '',
+            reasoningContent: reasoning,
+            toolCalls: assistantToolCalls,
+          ),
+        );
+        recovered.addAll(toolMessages);
+        continue;
+      }
+    }
+
+    final replyBuffer = StringBuffer();
+    while (cursor < parsed.timeline.length) {
+      final entry = parsed.timeline[cursor];
+      if (entry.type == ParsedReasoningEntryType.tool ||
+          entry.section == ParsedReasoningSection.reasoning) {
+        break;
+      }
+      final text = entry.text;
+      if (text != null) {
+        replyBuffer.write(text);
+      }
+      cursor += 1;
+    }
+
+    final reply = replyBuffer.toString();
+    if (reply.isNotEmpty || reasoning.isNotEmpty) {
+      recovered.add(
+        AIChatMessage(
+          content: reply,
+          reasoningContent: reasoning,
+        ),
+      );
+    }
+  }
+
+  if (recovered.isEmpty) {
+    return [message];
+  }
+
+  if (recovered.length > 1) {
+    AnxLog.info(
+      'Recovered ${recovered.length} DeepSeek replay messages from stored transcript.',
+    );
+  }
+  return recovered;
+}
+
+Map<String, dynamic> _decodeToolCallArguments(String rawInput) {
+  try {
+    final decoded = jsonDecode(rawInput);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+  } catch (_) {
+    // Fall through to empty map for malformed historical inputs.
+  }
+  return const {};
+}
+
+String _toolObservationForReplay(ParsedToolStep step) {
+  final output = step.output?.trim();
+  if (output != null && output.isNotEmpty) {
+    return output;
+  }
+  final error = step.error?.trim();
+  if (error != null && error.isNotEmpty) {
+    return error;
+  }
+  return '';
 }

@@ -1,0 +1,13 @@
+name: wikivoyage_eu
+description: Wikivoyage EU chatbot using llama3.2 and ObjectBox.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.9.0 <4.0.0"
+resolution: workspace
+
+dependencies:
+  langchain: ^0.8.1
+  langchain_ollama: ^0.4.1
+  langchain_community: 0.4.0+2

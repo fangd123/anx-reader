@@ -1,0 +1,165 @@
+import 'package:http/http.dart' as http;
+import 'package:langchain_core/documents.dart';
+import 'package:langchain_core/embeddings.dart';
+import 'package:langchain_core/language_models.dart';
+import 'package:ollama_dart/ollama_dart.dart';
+
+/// Wrapper around [Ollama](https://ollama.ai) Embeddings API.
+///
+/// Ollama allows you to run open-source large language models,
+/// such as Llama 3, locally.
+///
+/// For a complete list of supported models and model variants, see the
+/// [Ollama model library](https://ollama.ai/library).
+///
+/// Example:
+/// ```dart
+/// final embeddings = OllamaEmbeddings(model: 'llama3.2');
+/// final res = await embeddings.embedQuery('Hello world');
+/// ```
+///
+/// - [Ollama API docs](https://github.com/jmorganca/ollama/blob/main/docs/api.md#generate-embeddings)
+///
+/// ### Setup
+///
+/// 1. Download and install [Ollama](https://ollama.ai)
+/// 2. Fetch a model via `ollama pull <model family>`
+///   * e.g., for `Llama-7b`: `ollama pull llama3.2`
+///
+/// ### Advance
+///
+/// #### Custom HTTP client
+///
+/// You can always provide your own implementation of `http.Client` for further
+/// customization:
+///
+/// ```dart
+/// final client = Ollama(
+///   client: MyHttpClient(),
+/// );
+/// ```
+///
+/// #### Using a proxy
+///
+/// ##### HTTP proxy
+///
+/// You can use your own HTTP proxy by overriding the `baseUrl` and providing
+/// your required `headers`:
+///
+/// ```dart
+/// final client = Ollama(
+///   baseUrl: 'https://my-proxy.com',
+///   headers: {'x-my-proxy-header': 'value'},
+///   queryParams: {'x-my-proxy-query-param': 'value'},
+/// );
+/// ```
+///
+/// If you need further customization, you can always provide your own
+/// `http.Client`.
+///
+/// ##### SOCKS5 proxy
+///
+/// To use a SOCKS5 proxy, you can use the
+/// [`socks5_proxy`](https://pub.dev/packages/socks5_proxy) package and a
+/// custom `http.Client`.
+class OllamaEmbeddings extends Embeddings {
+  /// Create a new [OllamaEmbeddings] instance.
+  ///
+  /// Main configuration options:
+  /// - `baseUrl`: the base URL of Ollama API.
+  /// - [OllamaEmbeddings.keepAlive]
+  ///
+  /// Advance configuration options:
+  /// - `headers`: global headers to send with every request. You can use
+  ///   this to set custom headers, or to override the default headers.
+  /// - `queryParams`: global query parameters to send with every request. You
+  ///   can use this to set custom query parameters.
+  /// - `client`: the HTTP client to use. You can set your own HTTP client if
+  ///   you need further customization (e.g. to use a Socks5 proxy).
+  OllamaEmbeddings({
+    this.model = 'llama3.2',
+    this.keepAlive,
+    final String baseUrl = 'http://localhost:11434',
+    final Map<String, String>? headers,
+    final Map<String, dynamic>? queryParams,
+    final http.Client? client,
+  }) : _client = OllamaClient(
+         config: OllamaConfig(
+           baseUrl: baseUrl,
+           defaultHeaders: headers ?? const {},
+           defaultQueryParams:
+               queryParams?.map((k, v) => MapEntry(k, v.toString())) ??
+               const {},
+         ),
+         httpClient: client,
+       );
+
+  /// A client for interacting with Ollama API.
+  final OllamaClient _client;
+
+  /// The embeddings model to use.
+  final String model;
+
+  /// How long (in minutes) to keep the model loaded in memory.
+  ///
+  /// - If set to a positive duration (e.g. 20), the model will stay loaded for the provided duration.
+  /// - If set to a negative duration (e.g. -1), the model will stay loaded indefinitely.
+  /// - If set to 0, the model will be unloaded immediately once finished.
+  /// - If not set, the model will stay loaded for 5 minutes by default
+  final int? keepAlive;
+
+  @override
+  Future<List<List<double>>> embedDocuments(
+    final List<Document> documents,
+  ) async {
+    final data = await _client.embeddings.create(
+      request: EmbedRequest(
+        model: model,
+        input: documents.map((final doc) => doc.pageContent).toList(),
+        keepAlive: keepAlive?.toString(),
+      ),
+    );
+    return data.embeddings ?? [];
+  }
+
+  @override
+  Future<List<double>> embedQuery(final String query) async {
+    final data = await _client.embeddings.create(
+      request: EmbedRequest(
+        model: model,
+        input: query,
+        keepAlive: keepAlive?.toString(),
+      ),
+    );
+    return data.embedding ?? [];
+  }
+
+  /// {@template ollama_embeddings_list_models}
+  /// Returns a list of available models from the local Ollama server.
+  ///
+  /// Note: Ollama does not distinguish between embedding and other models,
+  /// so all locally available models are returned.
+  ///
+  /// Example:
+  /// ```dart
+  /// final embeddings = OllamaEmbeddings();
+  /// final models = await embeddings.listModels();
+  /// for (final model in models) {
+  ///   print('${model.id}');
+  /// }
+  /// ```
+  /// {@endtemplate}
+  @override
+  Future<List<ModelInfo>> listModels() async {
+    final response = await _client.models.list();
+    return (response.models ?? [])
+        .where((final m) => m.name != null)
+        .map((final m) => ModelInfo(id: m.name!, ownedBy: m.details?.family))
+        .toList();
+  }
+
+  /// Closes the client and cleans up any resources associated with it.
+  void close() {
+    _client.close();
+  }
+}
