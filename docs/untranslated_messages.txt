@@ -47,7 +47,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "de": [
@@ -98,7 +99,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "es": [
@@ -149,7 +151,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "fr": [
@@ -200,7 +203,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "it": [
@@ -251,7 +255,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "ja": [
@@ -302,7 +307,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "ko": [
@@ -353,7 +359,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "pt": [
@@ -404,7 +411,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "ro": [
@@ -455,7 +463,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "ru": [
@@ -506,7 +515,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "tr": [
@@ -557,7 +567,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "zh": [
@@ -594,7 +605,8 @@
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
     "settingsAiProviderReasoningEffortHigh",
-    "settingsAiProviderReasoningEffortMax"
+    "settingsAiProviderReasoningEffortMax",
+    "searchContent"
   ],
 
   "zh_LZH": [
@@ -645,7 +657,8 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ],
 
   "zh_TW": [
@@ -696,6 +709,7 @@
     "settingsAdvancedHttpProxyTest",
     "settingsAdvancedHttpProxyTesting",
     "settingsAdvancedHttpProxyTestSuccess",
-    "settingsAdvancedHttpProxyTestFailed"
+    "settingsAdvancedHttpProxyTestFailed",
+    "searchContent"
   ]
 }
