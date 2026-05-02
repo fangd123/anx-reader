@@ -63,10 +63,11 @@ abstract class RepositoryTool<I extends Object, O> {
   Future<String> _execute(I input) async {
     try {
       AnxLog.info(
-          'AiTool: Executing tool $name with input: ${jsonEncode(input)}');
+        'AiTool: Executing tool $name with input: ${_safeJsonEncode(input)}',
+      );
       final result = await _runWithTimeout(() => run(input));
       final serialized = serializeSuccess(result);
-      final resultJson = jsonEncode(serialized);
+      final resultJson = _safeJsonEncode(serialized);
       AnxLog.info('AiTool: Tool $name completed with result: $resultJson');
       return resultJson;
     } catch (error, stack) {
@@ -84,5 +85,24 @@ abstract class RepositoryTool<I extends Object, O> {
       return future;
     }
     return future.timeout(timeout!);
+  }
+
+  String _safeJsonEncode(Object? value) {
+    return jsonEncode(
+      value,
+      toEncodable: (Object? nonEncodable) {
+        if (nonEncodable == null) {
+          return null;
+        }
+
+        final dynamic candidate = nonEncodable;
+        try {
+          final dynamic json = candidate.toJson();
+          return json;
+        } catch (_) {
+          return nonEncodable.toString();
+        }
+      },
+    );
   }
 }

@@ -43,6 +43,22 @@ class WebSearchInput {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'query': query,
+      if (topic != null) 'topic': topic,
+      if (searchDepth != null) 'searchDepth': searchDepth,
+      if (maxResults != null) 'maxResults': maxResults,
+      if (includeDomains.isNotEmpty) 'includeDomains': includeDomains,
+      if (excludeDomains.isNotEmpty) 'excludeDomains': excludeDomains,
+      if (timeRange != null) 'timeRange': timeRange,
+      if (includeAnswer != null) 'includeAnswer': includeAnswer,
+      if (includeRawContent != null) 'includeRawContent': includeRawContent,
+      if (includeImages != null) 'includeImages': includeImages,
+      if (exactMatch != null) 'exactMatch': exactMatch,
+    };
+  }
+
   String get normalizedQuery => query.trim();
 
   TavilySearchTopic resolvedTopic(TavilySearchConfig defaults) {

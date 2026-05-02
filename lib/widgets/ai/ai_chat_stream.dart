@@ -786,10 +786,10 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
                 hintText: L10n.of(context).aiHintInputPlaceholder,
                 border: InputBorder.none,
               ),
+              keyboardType: TextInputType.multiline,
               maxLines: 5,
               minLines: 1,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _sendMessage(),
+              textInputAction: TextInputAction.newline,
             ),
             SizedBox(height: 4),
             Row(
