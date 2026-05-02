@@ -5,6 +5,8 @@ import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/models/book_notes_state.dart';
 import 'package:anx_reader/providers/bookmark.dart';
+import 'package:anx_reader/service/sync/sync_annotation_key.dart';
+import 'package:anx_reader/service/sync/sync_tombstone_store.dart';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -232,6 +234,15 @@ class BookNotesController extends _$BookNotesController {
     }
     for (final note in notesToDelete) {
       if (note.id != null) {
+        if ((book.md5 ?? '').isNotEmpty && note.cfi.isNotEmpty) {
+          await SyncTombstoneStore.markDeleted(
+            SyncAnnotationKeyBuilder.tombstone(
+              md5: book.md5!,
+              type: note.type,
+              cfi: note.cfi,
+            ),
+          );
+        }
         await bookNoteDao.deleteBookNoteById(note.id!);
       }
     }

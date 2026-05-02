@@ -54,7 +54,7 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
                 title: Text(L10n.of(context).settingsSyncWebdav),
                 leading: const Icon(Icons.cloud),
                 value: Text(Prefs().getSyncInfo(SyncProtocol.webdav)['url'] ??
-                    'Not set'),
+                    L10n.of(context).commonNotSet),
                 // enabled: Prefs().webdavStatus,
                 onPressed: (context) async {
                   showWebdavDialog(context);
@@ -64,10 +64,11 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
                 padding: const EdgeInsets.fromLTRB(40, 0, 20, 10),
                 child: GestureDetector(
                   onTap: () async {
+                    final l10n = L10n.of(context);
                     if (!await launchUrl(
                         Uri.parse('https://anx.anxcye.com/docs/sync/webdav'),
                         mode: LaunchMode.externalApplication)) {
-                      AnxToast.show(L10n.of(context).commonFailed);
+                      AnxToast.show(l10n.commonFailed);
                     }
                   },
                   child: Text(
@@ -108,6 +109,50 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
                   });
                 }),
             SettingsTile.switchTile(
+                title: Text(L10n.of(context).settingsSyncState),
+                description: Text(L10n.of(context).settingsSyncStateDesc),
+                leading: const Icon(Icons.sync),
+                initialValue: Prefs().syncStateWithWebdav,
+                enabled: Prefs().webdavStatus,
+                onToggle: (bool value) {
+                  setState(() {
+                    Prefs().syncStateWithWebdav = value;
+                  });
+                }),
+            SettingsTile.switchTile(
+                title: Text(L10n.of(context).settingsSyncBookFiles),
+                description: Text(L10n.of(context).settingsSyncBookFilesDesc),
+                leading: const Icon(Icons.menu_book),
+                initialValue: Prefs().syncBookFilesWithWebdav,
+                enabled: Prefs().webdavStatus && Prefs().syncStateWithWebdav,
+                onToggle: (bool value) {
+                  setState(() {
+                    Prefs().syncBookFilesWithWebdav = value;
+                  });
+                }),
+            SettingsTile.switchTile(
+                title: Text(L10n.of(context).settingsSyncKoReaderBridge),
+                description:
+                    Text(L10n.of(context).settingsSyncKoReaderBridgeDesc),
+                leading: const Icon(Icons.import_export),
+                initialValue: Prefs().koReaderSyncEnabled,
+                enabled: Prefs().webdavStatus && Prefs().syncStateWithWebdav,
+                onToggle: (bool value) {
+                  setState(() {
+                    Prefs().koReaderSyncEnabled = value;
+                  });
+                }),
+            SettingsTile.navigation(
+                title: Text(L10n.of(context).settingsSyncKoReaderServer),
+                leading: const Icon(Icons.router),
+                value: Text(Prefs().koReaderServerUrl.isEmpty
+                    ? L10n.of(context).commonNotSet
+                    : Prefs().koReaderServerUrl),
+                enabled: Prefs().koReaderSyncEnabled,
+                onPressed: (context) {
+                  showKoReaderDialog(context);
+                }),
+            SettingsTile.switchTile(
                 title: Text(L10n.of(context).settingsSyncAutoSync),
                 leading: const Icon(Icons.sync),
                 initialValue: Prefs().autoSync,
@@ -118,10 +163,13 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
                   });
                 }),
             SettingsTile.navigation(
-                title: Text(L10n.of(context).restoreBackup),
-                leading: const Icon(Icons.restore),
+                title: Text(L10n.of(context).settingsSyncPreview),
+                value: Text(Prefs().syncBookFilesWithWebdav
+                    ? L10n.of(context).settingsSyncPreviewWithAssets
+                    : L10n.of(context).settingsSyncPreviewWithoutAssets),
+                leading: const Icon(Icons.preview),
                 onPressed: (context) {
-                  ref.read(syncProvider.notifier).showBackupManagementDialog();
+                  ref.read(syncProvider.notifier).showPreviewDialog();
                 })
           ],
         ),
@@ -413,19 +461,57 @@ void showWebdavDialog(BuildContext context) {
     );
   }
 
+  void applyNutstoreTemplate() {
+    webdavUrlController.text = 'https://dav.jianguoyun.com/dav/';
+  }
+
   showDialog(
     context: context,
     builder: (context) {
+      final l10n = L10n.of(context);
       return SimpleDialog(
         title: Text(title),
         contentPadding: const EdgeInsets.all(20),
         children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(l10n.settingsSyncWebdavObjectRootDesc),
+          ),
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.settingsSyncWebdavNutstoreTemplateTitle,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(l10n.settingsSyncWebdavNutstoreTemplateBody),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: applyNutstoreTemplate,
+                    icon: const Icon(Icons.auto_fix_high),
+                    label:
+                        Text(l10n.settingsSyncWebdavApplyNutstoreTemplate),
+                  ),
+                ),
+              ],
+            ),
+          ),
           buildTextField(
-              L10n.of(context).settingsSyncWebdavUrl, webdavUrlController),
-          buildTextField(L10n.of(context).settingsSyncWebdavUsername,
-              webdavUsernameController),
-          buildTextField(L10n.of(context).settingsSyncWebdavPassword,
-              webdavPasswordController),
+              l10n.settingsSyncWebdavUrl, webdavUrlController),
+          buildTextField(
+              l10n.settingsSyncWebdavUsername, webdavUsernameController),
+          buildTextField(
+              l10n.settingsSyncWebdavPassword, webdavPasswordController),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -440,7 +526,7 @@ void showWebdavDialog(BuildContext context) {
                   },
                 ),
                 icon: const Icon(Icons.wifi_find),
-                label: Text(L10n.of(context).settingsSyncWebdavTestConnection),
+                label: Text(l10n.settingsSyncWebdavTestConnection),
               ),
               TextButton(
                 onPressed: () {
@@ -450,6 +536,71 @@ void showWebdavDialog(BuildContext context) {
                   Prefs().setSyncInfo(SyncProtocol.webdav, webdavInfo);
                   SyncClientFactory.initializeCurrentClient();
                   Navigator.pop(context);
+                },
+                child: Text(l10n.commonSave),
+              ),
+            ],
+          ),
+        ],
+      );
+    },
+  );
+}
+
+void showKoReaderDialog(BuildContext context) {
+  final urlController = TextEditingController(text: Prefs().koReaderServerUrl);
+  final usernameController =
+      TextEditingController(text: Prefs().koReaderUsername);
+  final passwordController =
+      TextEditingController(text: Prefs().koReaderPassword);
+
+  Widget buildTextField(
+    String labelText,
+    TextEditingController controller, {
+    bool obscureText = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        obscureText: obscureText,
+        decoration: InputDecoration(
+          border: const OutlineInputBorder(),
+          labelText: labelText,
+        ),
+      ),
+    );
+  }
+
+  showDialog(
+    context: context,
+    builder: (dialogContext) {
+      return SimpleDialog(
+        title: Text(L10n.of(dialogContext).settingsSyncKoReaderBridge),
+        contentPadding: const EdgeInsets.all(20),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(L10n.of(dialogContext).settingsSyncKoReaderDialogDesc),
+          ),
+          buildTextField(L10n.of(dialogContext).settingsSyncKoReaderServerUrl,
+              urlController),
+          buildTextField(
+              L10n.of(dialogContext).settingsSyncKoReaderServerUsername,
+              usernameController),
+          buildTextField(
+              L10n.of(dialogContext).settingsSyncKoReaderServerPassword,
+              passwordController,
+              obscureText: true),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () {
+                  Prefs().koReaderServerUrl = urlController.text.trim();
+                  Prefs().koReaderUsername = usernameController.text.trim();
+                  Prefs().koReaderPassword = passwordController.text;
+                  Navigator.pop(dialogContext);
                 },
                 child: Text(L10n.of(context).commonSave),
               ),

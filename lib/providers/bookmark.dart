@@ -1,6 +1,9 @@
 import 'package:anx_reader/dao/database.dart';
+import 'package:anx_reader/dao/book.dart';
 import 'package:anx_reader/models/bookmark.dart';
 import 'package:anx_reader/page/reading_page.dart';
+import 'package:anx_reader/service/sync/sync_annotation_key.dart';
+import 'package:anx_reader/service/sync/sync_tombstone_store.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:sqflite/sqflite.dart';
@@ -74,9 +77,23 @@ class Bookmark extends _$Bookmark {
         cfi = bookmark?.cfi;
       }
 
+      final bookmark =
+          state.valueOrNull?.firstWhere((b) => b.id == id || b.cfi == cfi);
       final db = DBHelper().database;
-      db.then((Database database) {
-        database.delete(
+      db.then((Database database) async {
+        final book = await bookDao.selectBookById(bookId);
+        final md5 = book.md5;
+        final bookmarkCfi = cfi ?? bookmark?.cfi ?? '';
+        if (md5 != null && md5.isNotEmpty && bookmarkCfi.isNotEmpty) {
+          await SyncTombstoneStore.markDeleted(
+            SyncAnnotationKeyBuilder.tombstone(
+              md5: md5,
+              type: 'bookmark',
+              cfi: bookmarkCfi,
+            ),
+          );
+        }
+        await database.delete(
           'tb_notes',
           where: 'id = ?',
           whereArgs: [id],

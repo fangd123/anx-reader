@@ -132,7 +132,10 @@ class SyncStatusBottomSheet extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(syncDirection, style: theme.textTheme.titleMedium),
-        Text(syncState.fileName, style: theme.textTheme.bodyMedium),
+        Text(
+          _localizedSyncPhase(syncState.fileName, l10n),
+          style: theme.textTheme.bodyMedium,
+        ),
         const SizedBox(height: 10),
         LinearProgressIndicator(
           value: syncState.total > 0 ? syncState.count / syncState.total : 0,
@@ -144,6 +147,21 @@ class SyncStatusBottomSheet extends ConsumerWidget {
         const Divider(),
       ],
     );
+  }
+
+  String _localizedSyncPhase(String phase, L10n l10n) {
+    switch (phase) {
+      case 'sync':
+        return l10n.webdavSyncing;
+      case 'books':
+        return l10n.syncPhaseBooks;
+      case 'apply':
+        return l10n.syncPhaseApplying;
+      case 'assets':
+        return l10n.webdavSyncingFiles;
+      default:
+        return phase;
+    }
   }
 
   Widget _buildUpdateTimeInfo(

@@ -8,6 +8,7 @@ import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/current_reading_state.dart';
+import 'package:anx_reader/models/import_file_check.dart';
 import 'package:anx_reader/page/home_page.dart';
 import 'package:anx_reader/page/iap_page.dart';
 import 'package:anx_reader/providers/ai_chat.dart';
@@ -110,6 +111,7 @@ void _checkDuplicatesAndShowDialog(
       uniqueFiles,
       duplicateFiles,
       duplicateInfo,
+      checkResults,
       unsupportedFiles,
       fileList,
       ref,
@@ -121,6 +123,7 @@ void _checkDuplicatesAndShowDialog(
       supportedFiles,
       [],
       {},
+      const [],
       unsupportedFiles,
       fileList,
       ref,
@@ -132,6 +135,7 @@ void _showImportDialog(
   List<File> uniqueFiles,
   List<File> duplicateFiles,
   Map<String, Book> duplicateInfo,
+  List<ImportFileCheck> checkResults,
   List<File> unsupportedFiles,
   List<File> fileList,
   WidgetRef ref,
@@ -364,7 +368,19 @@ void _showImportDialog(
                           currentHandlingFile = file.path;
                         });
                         try {
-                          await importBook(file, ref);
+                          final match = checkResults.firstWhere(
+                            (item) => item.filePath == file.path,
+                            orElse: () => ImportFileCheck(
+                              filePath: file.path,
+                              md5: null,
+                              isDuplicate: false,
+                            ),
+                          );
+                          await importBook(
+                            file,
+                            ref,
+                            provideBook: match.restoreBook,
+                          );
                           setState(() {
                             currentHandlingFile = '';
                           });
@@ -406,7 +422,11 @@ void _showImportDialog(
       });
 }
 
-Future<void> importBook(File file, WidgetRef ref) async {
+Future<void> importBook(
+  File file,
+  WidgetRef ref, {
+  Book? provideBook,
+}) async {
   String? md5 = await MD5Service.calculateFileMd5(file.path);
 
   if (file.path.split('.').last == 'txt') {
@@ -415,7 +435,7 @@ Future<void> importBook(File file, WidgetRef ref) async {
     file = tempFile;
   }
 
-  await getBookMetadata(file, md5: md5, ref: ref);
+  await getBookMetadata(file, md5: md5, ref: ref, book: provideBook);
   ref.read(bookListProvider.notifier).refresh();
 }
 

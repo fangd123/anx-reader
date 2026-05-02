@@ -260,6 +260,116 @@
   "importFailed": "Import failed: {error}",
   "settingsSyncCompletedToast": "Show toast when sync completed",
   "settingsSyncAutoSync": "Auto sync",
+  "commonNotSet": "Nesetat",
+  "settingsSyncState": "State Sync",
+  "settingsSyncStateDesc": "Sync progress, bookmarks, notes, AI chats, OPDS catalogs, and non-secret AI settings.",
+  "settingsSyncBookFiles": "Sync Book Files Over WebDAV",
+  "settingsSyncBookFilesDesc": "Optional. Upload and download book files and covers after state sync. Remote assets are never auto-deleted.",
+  "settingsSyncKoReaderBridge": "KOReader Progress Bridge",
+  "settingsSyncKoReaderBridgeDesc": "Optional. Sync reading progress with KOReader v1 using the same book MD5.",
+  "settingsSyncKoReaderServer": "KOReader Server",
+  "settingsSyncPreview": "Sync Preview",
+  "settingsSyncPreviewWithAssets": "progress, notes, chat, config, assets",
+  "settingsSyncPreviewWithoutAssets": "progress, notes, chat, config",
+  "settingsSyncWebdavObjectRootDesc": "Object sync root: anx-sync/v2/\nState sync is always object-based. Book file sync is optional and controlled separately.",
+  "settingsSyncWebdavNutstoreTemplateTitle": "Nutstore WebDAV Template",
+  "settingsSyncWebdavNutstoreTemplateBody": "URL template: https://dav.jianguoyun.com/dav/\nUsername: your Nutstore account email or username\nPassword: use a Nutstore app-specific password instead of your sign-in password.",
+  "settingsSyncWebdavApplyNutstoreTemplate": "Apply Nutstore Template",
+  "settingsSyncKoReaderDialogDesc": "Uses KOReader sync server v1 endpoints: /users/auth, /syncs/progress/<md5>, /syncs/progress.\nPassword stays local and is only used to derive the KOReader auth key on this device.",
+  "settingsSyncKoReaderServerUrl": "Server URL",
+  "settingsSyncKoReaderServerUsername": "Username",
+  "settingsSyncKoReaderServerPassword": "Password",
+  "syncStateDisabled": "State sync is disabled",
+  "syncPreviewProgress": "progress: {merged} merged ({local} local / {remote} remote)",
+  "@syncPreviewProgress": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncPreviewAnnotations": "bookmarks/notes: {merged} merged ({local} local / {remote} remote)",
+  "@syncPreviewAnnotations": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncPreviewChat": "chat: {merged} merged ({local} local / {remote} remote)",
+  "@syncPreviewChat": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncPreviewConfig": "config: {merged} merged ({local} local / {remote} remote)",
+  "@syncPreviewConfig": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncPreviewAssets": "assets: {merged} merged ({local} local / {remote} remote)",
+  "@syncPreviewAssets": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncFailedWithError": "Sync failed\n{error}",
+  "@syncFailedWithError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "syncPhaseBooks": "Merging book states",
+  "syncPhaseApplying": "Applying merged states",
+  "syncConflictProgressHigherPercentage": "Progress conflict on {md5}, using higher percentage.",
+  "@syncConflictProgressHigherPercentage": {
+    "placeholders": {
+      "md5": {}
+    }
+  },
+  "syncConflictProgressNewerTimestamp": "Progress moved backwards on {md5}, keeping newer timestamp.",
+  "@syncConflictProgressNewerTimestamp": {
+    "placeholders": {
+      "md5": {}
+    }
+  },
+  "syncConflictDeletionKeptActive": "Deletion conflict on {key}, keeping newer active item.",
+  "@syncConflictDeletionKeptActive": {
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "syncConflictConcurrentEdit": "Concurrent edit on {key}, keeping newer item.",
+  "@syncConflictConcurrentEdit": {
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "syncConflictConfigKeepRemote": "Config conflict on {key}, keeping remote value.",
+  "@syncConflictConfigKeepRemote": {
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "syncConflictConfigKeepLocal": "Config conflict on {key}, keeping local value.",
+  "@syncConflictConfigKeepLocal": {
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "syncConflictChatNewerSession": "Chat conflict on {sessionId}, keeping newer session.",
+  "@syncConflictChatNewerSession": {
+    "placeholders": {
+      "sessionId": {}
+    }
+  },
   "settingsTranslate": "Translate",
   "settingsTranslateCurrentService": "Current Service",
   "settingsTranslateAuto": "Auto",

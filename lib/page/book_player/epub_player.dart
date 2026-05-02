@@ -103,6 +103,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   String? _lastSelectionContextText;
   bool _selectionClearLocked = false;
   bool _selectionClearPending = false;
+  bool _pendingPercentageRestore = false;
 
   // Scroll wheel debounce
   Timer? _scrollDebounceTimer;
@@ -627,6 +628,13 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     controller.addJavaScriptHandler(
         handlerName: 'onLoadEnd',
         callback: (args) {
+          if (_pendingPercentageRestore &&
+              widget.book.lastReadPosition.isEmpty &&
+              widget.book.readingPercentage > 0 &&
+              widget.book.readingPercentage < 1) {
+            _pendingPercentageRestore = false;
+            goToPercentage(widget.book.readingPercentage);
+          }
           widget.onLoadEnd();
         });
 
@@ -1254,6 +1262,8 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     String uri = Uri.encodeComponent(widget.book.fileFullPath);
     String url = 'http://127.0.0.1:${Server().port}/book/$uri';
     String initialCfi = widget.cfi ?? widget.book.lastReadPosition;
+    _pendingPercentageRestore =
+        initialCfi.isEmpty && widget.book.readingPercentage > 0;
 
     return Listener(
       onPointerSignal: (event) {

@@ -6,6 +6,8 @@ import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/ai_system_preset.dart';
 import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/page/reading_page.dart';
+import 'package:anx_reader/service/sync/sync_annotation_key.dart';
+import 'package:anx_reader/service/sync/sync_tombstone_store.dart';
 import 'package:anx_reader/service/tts/tts_handler.dart';
 import 'package:anx_reader/utils/env_var.dart';
 import 'package:anx_reader/utils/toast/common.dart';
@@ -174,7 +176,22 @@ class ExcerptMenuState extends State<ExcerptMenu> {
   void deleteHandler() {
     if (deleteConfirm) {
       if (widget.id != null) {
-        bookNoteDao.deleteBookNoteById(widget.id!);
+        final book = epubPlayerKey.currentState!.widget.book;
+        final md5 = book.md5;
+        final type = _currentNote?.type ?? annoType;
+        final cfi = _currentNote?.cfi ?? widget.annoCfi;
+        Future<void>(() async {
+          if (md5 != null && md5.isNotEmpty && cfi.isNotEmpty) {
+            await SyncTombstoneStore.markDeleted(
+              SyncAnnotationKeyBuilder.tombstone(
+                md5: md5,
+                type: type,
+                cfi: cfi,
+              ),
+            );
+          }
+          await bookNoteDao.deleteBookNoteById(widget.id!);
+        });
         epubPlayerKey.currentState!.removeAnnotation(widget.annoCfi);
       }
       widget.onClose();

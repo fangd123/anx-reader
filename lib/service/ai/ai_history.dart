@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/service/sync/sync_json_file.dart';
 import 'package:anx_reader/utils/get_path/get_cache_dir.dart';
+import 'package:anx_reader/utils/get_path/sync_path.dart';
 import 'package:langchain_core/chat_models.dart';
 
 class AiChatHistoryEntry {
@@ -86,27 +88,26 @@ class AiChatHistoryEntry {
 
 class AiHistoryStore {
   static const String historyFileName = 'ai_history.json';
+  static const String legacyHistoryFileName = 'ai_history.json';
 
   static Future<List<AiChatHistoryEntry>> readHistory() async {
+    await _migrateLegacyCacheFile();
     final file = await _resolveFile();
     if (!await file.exists()) {
       return <AiChatHistoryEntry>[];
     }
 
     try {
-      final content = await file.readAsString();
-      final decoded = json.decode(content);
-      if (decoded is List) {
-        return decoded
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.fromEntries(
-                  e.entries.map(
-                    (entry) => MapEntry(entry.key.toString(), entry.value),
-                  ),
-                ))
-            .map(AiChatHistoryEntry.fromJson)
-            .toList(growable: false);
-      }
+      final decoded = await SyncJsonFile.readList(file);
+      return decoded
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.fromEntries(
+                e.entries.map(
+                  (entry) => MapEntry(entry.key.toString(), entry.value),
+                ),
+              ))
+          .map(AiChatHistoryEntry.fromJson)
+          .toList(growable: false);
     } catch (_) {
       await file.delete();
     }
@@ -153,7 +154,21 @@ class AiHistoryStore {
   }
 
   static Future<File> _resolveFile() async {
+    final sessionDir = await getAnxAiSessionDir();
+    return File('${sessionDir.path}/$historyFileName');
+  }
+
+  static Future<void> _migrateLegacyCacheFile() async {
     final cacheDir = await getAnxCacheDir();
-    return File('${cacheDir.path}/$historyFileName');
+    final legacyFile = File('${cacheDir.path}/$legacyHistoryFileName');
+    if (!await legacyFile.exists()) {
+      return;
+    }
+    final target = await _resolveFile();
+    if (!await target.exists()) {
+      await target.parent.create(recursive: true);
+      await legacyFile.copy(target.path);
+    }
+    await legacyFile.delete();
   }
 }

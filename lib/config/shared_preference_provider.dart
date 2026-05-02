@@ -49,6 +49,7 @@ const String prefsBackupVersionKey = '__prefsBackupVersion';
 const int prefsBackupSchemaVersion = 1;
 const String _prefsBackupEntryTypeKey = 'type';
 const String _prefsBackupEntryValueKey = 'value';
+const String _syncConfigMetaKey = 'syncableConfigMeta';
 
 const Set<String> _prefsImportSkipKeys = {
   'iapPurchaseStatus',
@@ -75,6 +76,13 @@ class Prefs extends ChangeNotifier {
   static const String _userPromptsKey = 'userPrompts';
   static const String _aiSystemPresetsKey = 'aiSystemPresets';
   static const String _tavilySearchConfigKey = 'tavilySearchConfig';
+  static const String _deviceIdKey = 'syncDeviceId';
+  static const String _stateSyncEnabledKey = 'syncStateWithWebdav';
+  static const String _syncBookFilesWithWebdavKey = 'syncBookFilesWithWebdav';
+  static const String _koReaderSyncEnabledKey = 'koReaderSyncEnabled';
+  static const String _koReaderServerUrlKey = 'koReaderServerUrl';
+  static const String _koReaderUsernameKey = 'koReaderUsername';
+  static const String _koReaderPasswordKey = 'koReaderPassword';
 
   Future<void> initPrefs() async {
     prefs = await SharedPreferences.getInstance();
@@ -309,6 +317,77 @@ class Prefs extends ChangeNotifier {
 
   bool get webdavStatus {
     return prefs.getBool('webdavStatus') ?? false;
+  }
+
+  String get syncDeviceId {
+    final existing = prefs.getString(_deviceIdKey);
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+    final generated =
+        '${DateTime.now().millisecondsSinceEpoch.toRadixString(16)}-${DateTime.now().microsecondsSinceEpoch.toRadixString(16)}';
+    prefs.setString(_deviceIdKey, generated);
+    return generated;
+  }
+
+  set syncStateWithWebdav(bool enabled) {
+    prefs.setBool(_stateSyncEnabledKey, enabled);
+    notifyListeners();
+  }
+
+  bool get syncStateWithWebdav {
+    return prefs.getBool(_stateSyncEnabledKey) ?? true;
+  }
+
+  set syncBookFilesWithWebdav(bool enabled) {
+    prefs.setBool(_syncBookFilesWithWebdavKey, enabled);
+    notifyListeners();
+  }
+
+  bool get syncBookFilesWithWebdav {
+    return prefs.getBool(_syncBookFilesWithWebdavKey) ?? false;
+  }
+
+  set koReaderSyncEnabled(bool enabled) {
+    prefs.setBool(_koReaderSyncEnabledKey, enabled);
+    notifyListeners();
+  }
+
+  bool get koReaderSyncEnabled {
+    return prefs.getBool(_koReaderSyncEnabledKey) ?? false;
+  }
+
+  set koReaderServerUrl(String value) {
+    prefs.setString(_koReaderServerUrlKey, value);
+    notifyListeners();
+  }
+
+  String get koReaderServerUrl {
+    return prefs.getString(_koReaderServerUrlKey)?.trim() ?? '';
+  }
+
+  set koReaderUsername(String value) {
+    prefs.setString(_koReaderUsernameKey, value);
+    notifyListeners();
+  }
+
+  String get koReaderUsername {
+    return prefs.getString(_koReaderUsernameKey)?.trim() ?? '';
+  }
+
+  set koReaderPassword(String value) {
+    prefs.setString(_koReaderPasswordKey, value);
+    notifyListeners();
+  }
+
+  String get koReaderPassword {
+    return prefs.getString(_koReaderPasswordKey) ?? '';
+  }
+
+  bool get hasKoReaderConfig {
+    return koReaderServerUrl.isNotEmpty &&
+        koReaderUsername.isNotEmpty &&
+        koReaderPassword.isNotEmpty;
   }
 
   void saveClearLogWhenStart(bool status) {
@@ -651,6 +730,7 @@ class Prefs extends ChangeNotifier {
 
   set aiRpm(int rpm) {
     prefs.setInt('aiRpm', rpm);
+    _touchSyncableConfigKey('aiRpm');
     notifyListeners();
   }
 
@@ -845,6 +925,7 @@ class Prefs extends ChangeNotifier {
 
   set selectedAiService(String identifier) {
     prefs.setString('selectedAiService', identifier);
+    _touchSyncableConfigKey('selectedAiService');
     notifyListeners();
   }
 
@@ -867,6 +948,7 @@ class Prefs extends ChangeNotifier {
       }
     }).toList();
     prefs.setString('aiProviders', jsonEncode(jsonList));
+    _touchSyncableConfigKey('aiProviders');
     notifyListeners();
   }
 
@@ -922,6 +1004,7 @@ class Prefs extends ChangeNotifier {
       _enabledAiToolsKey,
       AiToolRegistry.sanitizeIds(ids),
     );
+    _touchSyncableConfigKey('enabledAiTools');
     notifyListeners();
   }
 
@@ -987,6 +1070,7 @@ class Prefs extends ChangeNotifier {
   set userPrompts(List<UserPrompt> prompts) {
     final jsonList = prompts.map((p) => p.toJson()).toList();
     prefs.setString(_userPromptsKey, jsonEncode(jsonList));
+    _touchSyncableConfigKey('userPrompts');
     notifyListeners();
   }
 
@@ -1008,6 +1092,7 @@ class Prefs extends ChangeNotifier {
   set aiSystemPresets(List<AiSystemPreset> presets) {
     final jsonList = presets.map((preset) => preset.toJson()).toList();
     prefs.setString(_aiSystemPresetsKey, jsonEncode(jsonList));
+    _touchSyncableConfigKey('aiSystemPresets');
     notifyListeners();
   }
 
@@ -1056,11 +1141,13 @@ class Prefs extends ChangeNotifier {
   set opdsCatalogs(List<OpdsCatalog> catalogs) {
     final jsonList = catalogs.map((catalog) => catalog.toJson()).toList();
     prefs.setString('opdsCatalogs', jsonEncode(jsonList));
+    _touchSyncableConfigKey('opdsCatalogs');
     notifyListeners();
   }
 
   set maxAiCacheCount(int count) {
     prefs.setInt('maxAiCacheCount', count);
+    _touchSyncableConfigKey('maxAiCacheCount');
     notifyListeners();
   }
 
@@ -1070,12 +1157,244 @@ class Prefs extends ChangeNotifier {
 
   set aiChatFontSize(double size) {
     prefs.setDouble('aiChatFontSize', size);
+    _touchSyncableConfigKey('aiChatFontSize');
     notifyListeners();
   }
 
   double get aiChatFontSize {
     return prefs.getDouble('aiChatFontSize') ?? 14.0;
   }
+
+  Map<String, dynamic> buildSyncableConfigSnapshot() {
+    final providers = getAiProviders()
+        .whereType<Map>()
+        .map((json) => _sanitizeAiProvider(Map<String, dynamic>.from(json)))
+        .toList(growable: false);
+
+    final catalogs =
+        opdsCatalogs.map((catalog) => catalog.toJson()).toList(growable: false);
+
+    final values = <String, dynamic>{
+      'selectedAiService': selectedAiService,
+      'enabledAiTools': enabledAiToolIds,
+      'userPrompts': userPrompts.map((e) => e.toJson()).toList(growable: false),
+      'aiSystemPresets':
+          aiSystemPresets.map((e) => e.toJson()).toList(growable: false),
+      'aiChatDisplayMode': aiChatDisplayMode.code,
+      'aiChatFontSize': aiChatFontSize,
+      'aiRpm': aiRpm,
+      'maxAiCacheCount': maxAiCacheCount,
+      'aiProviders': providers,
+      'opdsCatalogs': catalogs,
+    };
+    final metadata = _readSyncableConfigMeta();
+    for (final key in values.keys) {
+      metadata.putIfAbsent(key, () => _nowIso());
+    }
+
+    return {
+      'values': values,
+      'updatedAt': metadata,
+    };
+  }
+
+  Future<void> applySyncableConfigSnapshot(Map<String, dynamic> json) async {
+    final legacyPayload = json['values'] is Map
+        ? Map<String, dynamic>.from(json['values'] as Map)
+        : Map<String, dynamic>.from(json);
+    final remoteMeta = json['updatedAt'] is Map
+        ? (json['updatedAt'] as Map).map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          )
+        : const <String, String>{};
+    final localMeta = _readSyncableConfigMeta();
+    final mergedMeta = <String, String>{...localMeta};
+
+    final selectedAiServiceValue = legacyPayload['selectedAiService'];
+    if (selectedAiServiceValue is String &&
+        _shouldApplySyncableConfigKey(
+          key: 'selectedAiService',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      selectedAiService = selectedAiServiceValue;
+      mergedMeta['selectedAiService'] =
+          remoteMeta['selectedAiService'] ?? _nowIso();
+    }
+
+    final enabledAiToolsRaw = legacyPayload['enabledAiTools'];
+    if (enabledAiToolsRaw is List &&
+        _shouldApplySyncableConfigKey(
+          key: 'enabledAiTools',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      enabledAiToolIds =
+          enabledAiToolsRaw.map((item) => item.toString()).toList();
+      mergedMeta['enabledAiTools'] = remoteMeta['enabledAiTools'] ?? _nowIso();
+    }
+
+    final promptsRaw = legacyPayload['userPrompts'];
+    if (promptsRaw is List &&
+        _shouldApplySyncableConfigKey(
+          key: 'userPrompts',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      userPrompts = promptsRaw
+          .whereType<Map>()
+          .map((item) => UserPrompt.fromJson(Map<String, dynamic>.from(item)))
+          .toList(growable: false);
+      mergedMeta['userPrompts'] = remoteMeta['userPrompts'] ?? _nowIso();
+    }
+
+    final presetsRaw = legacyPayload['aiSystemPresets'];
+    if (presetsRaw is List &&
+        _shouldApplySyncableConfigKey(
+          key: 'aiSystemPresets',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      aiSystemPresets = presetsRaw
+          .whereType<Map>()
+          .map(
+            (item) => AiSystemPreset.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .toList(growable: false);
+      mergedMeta['aiSystemPresets'] =
+          remoteMeta['aiSystemPresets'] ?? _nowIso();
+    }
+
+    final displayMode = legacyPayload['aiChatDisplayMode']?.toString();
+    if (displayMode != null &&
+        _shouldApplySyncableConfigKey(
+          key: 'aiChatDisplayMode',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      aiChatDisplayMode = AiChatDisplayMode.values.firstWhere(
+        (item) => item.code == displayMode,
+        orElse: () => AiChatDisplayMode.adaptive,
+      );
+      mergedMeta['aiChatDisplayMode'] =
+          remoteMeta['aiChatDisplayMode'] ?? _nowIso();
+    }
+
+    final chatFontSize = legacyPayload['aiChatFontSize'];
+    if (chatFontSize is num &&
+        _shouldApplySyncableConfigKey(
+          key: 'aiChatFontSize',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      aiChatFontSize = chatFontSize.toDouble();
+      mergedMeta['aiChatFontSize'] = remoteMeta['aiChatFontSize'] ?? _nowIso();
+    }
+
+    final rpm = legacyPayload['aiRpm'];
+    if (rpm is num &&
+        _shouldApplySyncableConfigKey(
+          key: 'aiRpm',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      aiRpm = rpm.toInt();
+      mergedMeta['aiRpm'] = remoteMeta['aiRpm'] ?? _nowIso();
+    }
+
+    final maxCacheCount = legacyPayload['maxAiCacheCount'];
+    if (maxCacheCount is num &&
+        _shouldApplySyncableConfigKey(
+          key: 'maxAiCacheCount',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      maxAiCacheCount = maxCacheCount.toInt();
+      mergedMeta['maxAiCacheCount'] =
+          remoteMeta['maxAiCacheCount'] ?? _nowIso();
+    }
+
+    final aiProvidersRaw = legacyPayload['aiProviders'];
+    if (aiProvidersRaw is List &&
+        _shouldApplySyncableConfigKey(
+          key: 'aiProviders',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      final sanitized = aiProvidersRaw
+          .whereType<Map>()
+          .map((item) => _sanitizeAiProvider(Map<String, dynamic>.from(item)))
+          .toList(growable: false);
+      saveAiProviders(sanitized);
+      mergedMeta['aiProviders'] = remoteMeta['aiProviders'] ?? _nowIso();
+    }
+
+    final catalogsRaw = legacyPayload['opdsCatalogs'];
+    if (catalogsRaw is List &&
+        _shouldApplySyncableConfigKey(
+          key: 'opdsCatalogs',
+          remoteMeta: remoteMeta,
+          localMeta: localMeta,
+        )) {
+      opdsCatalogs = catalogsRaw
+          .whereType<Map>()
+          .map((item) => OpdsCatalog.fromJson(Map<String, dynamic>.from(item)))
+          .toList(growable: false);
+      mergedMeta['opdsCatalogs'] = remoteMeta['opdsCatalogs'] ?? _nowIso();
+    }
+
+    await prefs.setString(_syncConfigMetaKey, jsonEncode(mergedMeta));
+  }
+
+  Map<String, String> get syncableConfigMeta {
+    return Map.unmodifiable(_readSyncableConfigMeta());
+  }
+
+  Map<String, dynamic> _sanitizeAiProvider(Map<String, dynamic> provider) {
+    provider.remove('apiKeys');
+    provider['apiKeys'] = const <Map<String, dynamic>>[];
+    return provider;
+  }
+
+  Map<String, String> _readSyncableConfigMeta() {
+    final raw = prefs.getString(_syncConfigMetaKey);
+    if (raw == null || raw.isEmpty) {
+      return <String, String>{};
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return decoded.map(
+          (key, value) => MapEntry(key.toString(), value.toString()),
+        );
+      }
+    } catch (_) {}
+    return <String, String>{};
+  }
+
+  void _touchSyncableConfigKey(String key) {
+    final meta = _readSyncableConfigMeta();
+    meta[key] = _nowIso();
+    prefs.setString(_syncConfigMetaKey, jsonEncode(meta));
+  }
+
+  bool _shouldApplySyncableConfigKey({
+    required String key,
+    required Map<String, String> remoteMeta,
+    required Map<String, String> localMeta,
+  }) {
+    final remoteTime = DateTime.tryParse(remoteMeta[key] ?? '')?.toUtc();
+    final localTime = DateTime.tryParse(localMeta[key] ?? '')?.toUtc();
+    if (remoteTime == null) {
+      return true;
+    }
+    if (localTime == null) {
+      return true;
+    }
+    return !remoteTime.isBefore(localTime);
+  }
+
+  String _nowIso() => DateTime.now().toUtc().toIso8601String();
 
   set volumeKeyTurnPage(bool status) {
     prefs.setBool('volumeKeyTurnPage', status);
@@ -1719,6 +2038,7 @@ class Prefs extends ChangeNotifier {
 
   set aiChatDisplayMode(AiChatDisplayMode mode) {
     prefs.setString('aiChatDisplayMode', mode.code);
+    _touchSyncableConfigKey('aiChatDisplayMode');
     notifyListeners();
   }
 

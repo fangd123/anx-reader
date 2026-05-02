@@ -260,6 +260,116 @@
   "importFailed": "匯入失敗：{error}",
   "settingsSyncCompletedToast": "同步完成時顯示浮動通知",
   "settingsSyncAutoSync": "自動同步",
+  "commonNotSet": "未設定",
+  "settingsSyncState": "狀態同步",
+  "settingsSyncStateDesc": "同步閱讀進度、書籤、筆記、AI 對話、OPDS 書源，以及不含金鑰的 AI 設定。",
+  "settingsSyncBookFiles": "透過 WebDAV 同步書籍檔案",
+  "settingsSyncBookFilesDesc": "可選。狀態同步完成後再補齊書籍檔案與封面。不會自動刪除遠端資源。",
+  "settingsSyncKoReaderBridge": "KOReader 進度橋接",
+  "settingsSyncKoReaderBridgeDesc": "可選。使用相同書籍 MD5 與 KOReader v1 同步閱讀進度。",
+  "settingsSyncKoReaderServer": "KOReader 伺服器",
+  "settingsSyncPreview": "同步預覽",
+  "settingsSyncPreviewWithAssets": "進度、筆記、對話、設定、資源",
+  "settingsSyncPreviewWithoutAssets": "進度、筆記、對話、設定",
+  "settingsSyncWebdavObjectRootDesc": "物件同步根目錄：anx-sync/v2/\n狀態同步一律使用物件級結構。書籍檔案同步為可選項，並獨立控制。",
+  "settingsSyncWebdavNutstoreTemplateTitle": "堅果雲 WebDAV 範本",
+  "settingsSyncWebdavNutstoreTemplateBody": "位址範本：https://dav.jianguoyun.com/dav/\n使用者名稱：堅果雲帳號信箱或使用者名稱\n密碼：請使用堅果雲「應用密碼」，不要直接使用登入密碼。",
+  "settingsSyncWebdavApplyNutstoreTemplate": "套用堅果雲範本",
+  "settingsSyncKoReaderDialogDesc": "使用 KOReader sync server v1 端點：/users/auth、/syncs/progress/<md5>、/syncs/progress。\n密碼只保留在本機，僅用於在此裝置衍生 KOReader 驗證 key。",
+  "settingsSyncKoReaderServerUrl": "伺服器位址",
+  "settingsSyncKoReaderServerUsername": "使用者名稱",
+  "settingsSyncKoReaderServerPassword": "密碼",
+  "syncStateDisabled": "狀態同步已停用",
+  "syncPreviewProgress": "進度：已合併 {merged} 項（本機 {local} / 遠端 {remote}）",
+  "@syncPreviewProgress": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncPreviewAnnotations": "書籤/筆記：已合併 {merged} 項（本機 {local} / 遠端 {remote}）",
+  "@syncPreviewAnnotations": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncPreviewChat": "對話：已合併 {merged} 項（本機 {local} / 遠端 {remote}）",
+  "@syncPreviewChat": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncPreviewConfig": "設定：已合併 {merged} 項（本機 {local} / 遠端 {remote}）",
+  "@syncPreviewConfig": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncPreviewAssets": "資源：已合併 {merged} 項（本機 {local} / 遠端 {remote}）",
+  "@syncPreviewAssets": {
+    "placeholders": {
+      "merged": {},
+      "local": {},
+      "remote": {}
+    }
+  },
+  "syncFailedWithError": "同步失敗\n{error}",
+  "@syncFailedWithError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "syncPhaseBooks": "正在合併書籍狀態",
+  "syncPhaseApplying": "正在套用合併結果",
+  "syncConflictProgressHigherPercentage": "書籍 {md5} 的閱讀進度發生衝突，已採用較高進度。",
+  "@syncConflictProgressHigherPercentage": {
+    "placeholders": {
+      "md5": {}
+    }
+  },
+  "syncConflictProgressNewerTimestamp": "書籍 {md5} 的閱讀進度出現回退，已保留時間較新的記錄。",
+  "@syncConflictProgressNewerTimestamp": {
+    "placeholders": {
+      "md5": {}
+    }
+  },
+  "syncConflictDeletionKeptActive": "{key} 存在刪除衝突，已保留較新的有效項目。",
+  "@syncConflictDeletionKeptActive": {
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "syncConflictConcurrentEdit": "{key} 存在並行編輯衝突，已保留較新的項目。",
+  "@syncConflictConcurrentEdit": {
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "syncConflictConfigKeepRemote": "設定 {key} 存在衝突，已保留遠端值。",
+  "@syncConflictConfigKeepRemote": {
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "syncConflictConfigKeepLocal": "設定 {key} 存在衝突，已保留本機值。",
+  "@syncConflictConfigKeepLocal": {
+    "placeholders": {
+      "key": {}
+    }
+  },
+  "syncConflictChatNewerSession": "聊天工作階段 {sessionId} 存在衝突，已保留較新的工作階段。",
+  "@syncConflictChatNewerSession": {
+    "placeholders": {
+      "sessionId": {}
+    }
+  },
   "settingsTranslate": "翻譯",
   "settingsTranslateCurrentService": "目前翻譯服務",
   "settingsTranslateAuto": "自動偵測",

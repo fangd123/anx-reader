@@ -105,8 +105,18 @@ class MD5Service {
       results.add(ImportFileCheck(
         filePath: filePath,
         md5: md5,
-        isDuplicate: duplicateBook != null && !duplicateBook.isDeleted,
+        isDuplicate: duplicateBook != null &&
+            !duplicateBook.isDeleted &&
+            await File(duplicateBook.fileFullPath).exists(),
         duplicateBook: duplicateBook,
+        isRestore: duplicateBook != null &&
+            !duplicateBook.isDeleted &&
+            !await File(duplicateBook.fileFullPath).exists(),
+        restoreBook: duplicateBook != null &&
+                !duplicateBook.isDeleted &&
+                !await File(duplicateBook.fileFullPath).exists()
+            ? duplicateBook
+            : null,
       ));
     }
 
