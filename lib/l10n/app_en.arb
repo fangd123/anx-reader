@@ -991,6 +991,7 @@
   "bookshelfFilterNotStarted": "Not started",
   "bookshelfFilterTagsTooltip": "Filter tags",
   "settingsNarrateTtsService": "TTS Service",
+  "settingsNarrateEdgeTts": "Edge (Free)",
   "settingsNarrateAliyunTts": "Aliyun",
   "settingsNarrateAzureTts": "Microsoft Azure",
   "settingsNarrateOpenAiTts": "OpenAI",

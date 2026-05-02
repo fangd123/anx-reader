@@ -884,6 +884,7 @@
   "bookshelfFilterNotStarted": "未開始",
   "bookshelfFilterTagsTooltip": "タグで絞り込む",
   "settingsNarrateTtsService": "TTS サービス",
+  "settingsNarrateEdgeTts": "Edge 無料音声",
   "settingsNarrateAliyunTts": "Aliyun",
   "settingsNarrateAzureTts": "Microsoft Azure",
   "settingsNarrateOpenAiTts": "OpenAI",

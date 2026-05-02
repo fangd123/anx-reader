@@ -898,6 +898,7 @@
   "bookshelfFilterNotStarted": "未开始",
   "bookshelfFilterTagsTooltip": "筛选标签",
   "settingsNarrateTtsService": "TTS 服务",
+  "settingsNarrateEdgeTts": "Edge 免费语音",
   "settingsNarrateAliyunTts": "阿里云",
   "settingsNarrateAzureTts": "微软 Azure",
   "settingsNarrateOpenAiTts": "OpenAI",

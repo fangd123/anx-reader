@@ -436,6 +436,9 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
               value: 'system',
               child: Text(L10n.of(context).settingsNarrateSystemTts)),
           DropdownMenuItem(
+              value: 'edge',
+              child: Text(L10n.of(context).settingsNarrateEdgeTts)),
+          DropdownMenuItem(
               value: 'aliyun',
               child: Text(L10n.of(context).settingsNarrateAliyunTts)),
           DropdownMenuItem(
