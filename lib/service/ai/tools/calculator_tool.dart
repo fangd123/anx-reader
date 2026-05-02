@@ -55,7 +55,7 @@ class CalculatorTool
 
   String _evaluateExpression(String expression) {
     AnxLog.info('Evaluating expression: $expression');
-    final parser = ShuntingYardParser();
+    final parser = Parser();
     final parsed = parser.parse(expression);
     final evaluation = parsed.evaluate(EvaluationType.REAL, ContextModel());
     if (evaluation is num && evaluation != 0) {

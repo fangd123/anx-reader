@@ -218,7 +218,7 @@ Stream<String> _generateStream({
               }
               return p;
             }).toList();
-            Prefs().saveAiProviders(updatedProviders);
+            Prefs().saveAiProviders(updatedProviders, touchSyncMeta: false);
             return;
           }
         }

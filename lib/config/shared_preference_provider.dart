@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:collection/collection.dart';
 import 'package:anx_reader/enums/ai_prompts.dart';
 import 'package:anx_reader/enums/bgimg_alignment.dart';
 import 'package:anx_reader/enums/bgimg_type.dart';
@@ -27,6 +28,7 @@ import 'package:anx_reader/models/book_style.dart';
 import 'package:anx_reader/models/chapter_split_presets.dart';
 import 'package:anx_reader/models/chapter_split_rule.dart';
 import 'package:anx_reader/models/font_model.dart';
+import 'package:anx_reader/models/ai_provider.dart';
 import 'package:anx_reader/models/book_notes_state.dart';
 import 'package:anx_reader/models/opds_catalog.dart';
 import 'package:anx_reader/models/read_theme.dart';
@@ -57,6 +59,9 @@ const Set<String> _prefsImportSkipKeys = {
 };
 
 class Prefs extends ChangeNotifier {
+  static const DeepCollectionEquality _deepCollectionEquality =
+      DeepCollectionEquality();
+
   late SharedPreferences prefs;
   static final Prefs _instance = Prefs._internal();
 
@@ -938,7 +943,14 @@ class Prefs extends ChangeNotifier {
     notifyListeners();
   }
 
-  void saveAiProviders(List<dynamic> providers) {
+  void saveAiProviders(
+    List<dynamic> providers, {
+    bool touchSyncMeta = true,
+  }) {
+    final previousSyncableProviders = getAiProviders()
+        .whereType<Map>()
+        .map((json) => _sanitizeAiProviderForSync(Map<String, dynamic>.from(json)))
+        .toList(growable: false);
     final jsonList = providers.map((p) {
       // Handle both AiProvider objects and already-serialized maps
       if (p is Map<String, dynamic>) {
@@ -947,8 +959,18 @@ class Prefs extends ChangeNotifier {
         return p.toJson();
       }
     }).toList();
+    final nextSyncableProviders = jsonList
+        .whereType<Map>()
+        .map((json) => _sanitizeAiProviderForSync(Map<String, dynamic>.from(json)))
+        .toList(growable: false);
     prefs.setString('aiProviders', jsonEncode(jsonList));
-    _touchSyncableConfigKey('aiProviders');
+    if (touchSyncMeta &&
+        !_deepCollectionEquality.equals(
+          previousSyncableProviders,
+          nextSyncableProviders,
+        )) {
+      _touchSyncableConfigKey('aiProviders');
+    }
     notifyListeners();
   }
 
@@ -1168,7 +1190,7 @@ class Prefs extends ChangeNotifier {
   Map<String, dynamic> buildSyncableConfigSnapshot() {
     final providers = getAiProviders()
         .whereType<Map>()
-        .map((json) => _sanitizeAiProvider(Map<String, dynamic>.from(json)))
+        .map((json) => _sanitizeAiProviderForSync(Map<String, dynamic>.from(json)))
         .toList(growable: false);
 
     final catalogs =
@@ -1321,11 +1343,8 @@ class Prefs extends ChangeNotifier {
           remoteMeta: remoteMeta,
           localMeta: localMeta,
         )) {
-      final sanitized = aiProvidersRaw
-          .whereType<Map>()
-          .map((item) => _sanitizeAiProvider(Map<String, dynamic>.from(item)))
-          .toList(growable: false);
-      saveAiProviders(sanitized);
+      final mergedProviders = _mergeSyncedAiProviders(aiProvidersRaw);
+      saveAiProviders(mergedProviders, touchSyncMeta: false);
       mergedMeta['aiProviders'] = remoteMeta['aiProviders'] ?? _nowIso();
     }
 
@@ -1350,10 +1369,59 @@ class Prefs extends ChangeNotifier {
     return Map.unmodifiable(_readSyncableConfigMeta());
   }
 
-  Map<String, dynamic> _sanitizeAiProvider(Map<String, dynamic> provider) {
-    provider.remove('apiKeys');
-    provider['apiKeys'] = const <Map<String, dynamic>>[];
-    return provider;
+  Map<String, dynamic> _sanitizeAiProviderForSync(
+    Map<String, dynamic> provider,
+  ) {
+    final sanitized = Map<String, dynamic>.from(provider);
+    sanitized.remove('apiKeys');
+    sanitized.remove('keyIndex');
+    sanitized.remove('createdAt');
+    sanitized.remove('updatedAt');
+    sanitized['apiKeys'] = const <Map<String, dynamic>>[];
+    return sanitized;
+  }
+
+  List<Map<String, dynamic>> _mergeSyncedAiProviders(List<dynamic> remoteRaw) {
+    final localById = <String, Map<String, dynamic>>{
+      for (final provider in getAiProviders().whereType<Map>())
+        if ((provider['id']?.toString() ?? '').isNotEmpty)
+          provider['id'].toString(): Map<String, dynamic>.from(provider),
+    };
+
+    return remoteRaw.whereType<Map>().map((item) {
+      final remoteProvider = _sanitizeAiProviderForSync(
+        Map<String, dynamic>.from(item),
+      );
+      final providerId = remoteProvider['id']?.toString() ?? '';
+      final localProvider = localById[providerId];
+      if (localProvider != null) {
+        final localApiKeys = (localProvider['apiKeys'] as List? ?? const [])
+            .whereType<Map>()
+            .map((key) => Map<String, dynamic>.from(key))
+            .toList(growable: false);
+        remoteProvider['apiKeys'] = localApiKeys;
+
+        final localKeyIndex = localProvider['keyIndex'];
+        if (localKeyIndex is int) {
+          remoteProvider['keyIndex'] = localKeyIndex;
+        }
+
+        final localCreatedAt = localProvider['createdAt'];
+        if (localCreatedAt != null) {
+          remoteProvider['createdAt'] = localCreatedAt;
+        }
+
+        final localUpdatedAt = localProvider['updatedAt'];
+        if (localUpdatedAt != null) {
+          remoteProvider['updatedAt'] = localUpdatedAt;
+        }
+      } else {
+        remoteProvider['apiKeys'] = const <Map<String, dynamic>>[];
+        remoteProvider['keyIndex'] = 0;
+      }
+
+      return AiProvider.fromJson(remoteProvider).toJson();
+    }).toList(growable: false);
   }
 
   Map<String, String> _readSyncableConfigMeta() {

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:collection/collection.dart';
 import 'package:anx_reader/dao/book.dart';
 import 'package:anx_reader/dao/book_note.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
@@ -32,6 +33,9 @@ class WebdavObjectSyncResult {
 }
 
 class WebdavObjectSyncService {
+  static const DeepCollectionEquality _deepCollectionEquality =
+      DeepCollectionEquality();
+
   WebdavObjectSyncService(
     this._store, {
     KOReaderProgressBridge? koReaderBridge,
@@ -575,7 +579,7 @@ class WebdavObjectSyncService {
       if (chosenMeta != null) {
         mergedMeta[key] = chosenMeta;
       }
-      if (remoteValue != localValue &&
+      if (!_deepCollectionEquality.equals(remoteValue, localValue) &&
           localTime != null &&
           remoteTime != null) {
         conflicts.add(

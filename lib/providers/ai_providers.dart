@@ -184,7 +184,7 @@ class AiProviders extends _$AiProviders {
         else
           p
     ];
-    Prefs().saveAiProviders(state);
+    Prefs().saveAiProviders(state, touchSyncMeta: false);
   }
 
   /// Add API key to a provider
