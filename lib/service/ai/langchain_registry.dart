@@ -121,8 +121,9 @@ class LangchainAiRegistry {
       final enabledIds = Prefs().enabledAiToolIds;
       final toolContext = AiToolContext(ref: ref!);
       tools = AiToolRegistry.buildTools(toolContext, enabledIds);
+      final builtToolNames = tools.map((tool) => tool.name).toSet();
       final enabledDefs = AiToolRegistry.definitions
-          .where((def) => enabledIds.contains(def.id))
+          .where((def) => builtToolNames.contains(def.id))
           .toList(growable: false);
       systemMessage = _buildAgentSystemMessage(
         isReading: isReading,
@@ -184,6 +185,7 @@ $readingStateContext
 2. **Combine tools efficiently** - Use multiple tools in parallel or sequence when needed
 3. **Prioritize specific tools** - When user is reading, prefer current_* series tools over general search
 4. **Be transparent** - Briefly explain your reasoning when using complex tool combinations
+5. **Use web search when needed** - If the answer depends on recent or external public information, use the web_search tool instead of guessing
 
 ## Available Tools & Usage Scenarios
 ${_formatToolCatalog(enabledTools)}

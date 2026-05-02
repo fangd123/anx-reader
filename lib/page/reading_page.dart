@@ -11,12 +11,15 @@ import 'package:anx_reader/enums/sync_trigger.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/ai_quick_prompt_chip.dart';
+import 'package:anx_reader/models/ai_system_preset.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/read_theme.dart';
 import 'package:anx_reader/page/book_detail.dart';
 import 'package:anx_reader/page/book_player/epub_player.dart';
+import 'package:anx_reader/providers/current_reading.dart';
 import 'package:anx_reader/providers/sync.dart';
 import 'package:anx_reader/service/ai/index.dart';
+import 'package:anx_reader/service/ai/request_message_builder.dart';
 import 'package:anx_reader/service/ai/prompt_generate.dart';
 import 'package:anx_reader/utils/env_var.dart';
 import 'package:anx_reader/utils/toast/common.dart';
@@ -553,8 +556,16 @@ class ReadingPageState extends ConsumerState<ReadingPage>
   Future<void> showAiChat({
     String? content,
     bool sendImmediate = false,
+    String? selectedText,
+    String? contextText,
+    AiSystemPreset? systemPreset,
   }) async {
     List<AiQuickPromptChip> quickPrompts = _getAiQuickPromptChips();
+    final requestContext = buildReadingRequestContext(
+      ref.read(currentReadingProvider),
+      selectedText: selectedText,
+      contextText: contextText,
+    );
 
     // Determine display mode
     final displayMode = Prefs().aiChatDisplayMode;
@@ -595,6 +606,8 @@ class ReadingPageState extends ConsumerState<ReadingPage>
                       initialMessage: content,
                       sendImmediate: sendImmediate,
                       quickPromptChips: quickPrompts,
+                      initialRequestContext: requestContext,
+                      initialSystemPreset: systemPreset,
                     ),
                   ),
                 ),
@@ -615,6 +628,8 @@ class ReadingPageState extends ConsumerState<ReadingPage>
                 sendImmediate: sendImmediate,
                 quickPromptChips: quickPrompts,
                 trailing: _buildAiChatTrailing(navigatorKey.currentContext!),
+                initialRequestContext: requestContext,
+                initialSystemPreset: systemPreset,
               ),
             ),
           ],

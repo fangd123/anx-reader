@@ -4,10 +4,13 @@ import 'package:anx_reader/enums/ai_chat_display_mode.dart';
 import 'package:anx_reader/enums/ai_panel_position.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/page/settings_page/ai_provider_list_page.dart';
+import 'package:anx_reader/page/settings_page/ai_web_search_settings_page.dart';
 import 'package:anx_reader/providers/ai_cache_count.dart';
 import 'package:anx_reader/providers/ai_providers.dart';
+import 'package:anx_reader/providers/ai_system_presets.dart';
 import 'package:anx_reader/providers/user_prompts.dart';
 import 'package:anx_reader/service/ai/tools/ai_tool_registry.dart';
+import 'package:anx_reader/service/ai/tools/web_search_tool.dart';
 import 'package:anx_reader/widgets/common/anx_button.dart';
 import 'package:anx_reader/widgets/common/anx_segmented_button.dart';
 import 'package:anx_reader/widgets/delete_confirm.dart';
@@ -28,6 +31,10 @@ class AISettings extends ConsumerStatefulWidget {
 }
 
 class _AISettingsState extends ConsumerState<AISettings> {
+  String? _expandedSystemPresetId;
+  final Map<String, TextEditingController> _systemPresetNameControllers = {};
+  final Map<String, TextEditingController> _systemPresetContentControllers = {};
+
   // User prompts state
   String? _expandedUserPromptId;
   final Map<String, TextEditingController> _userPromptNameControllers = {};
@@ -35,6 +42,13 @@ class _AISettingsState extends ConsumerState<AISettings> {
 
   @override
   void dispose() {
+    for (var controller in _systemPresetNameControllers.values) {
+      controller.dispose();
+    }
+    for (var controller in _systemPresetContentControllers.values) {
+      controller.dispose();
+    }
+
     // Clean up user prompt controllers
     for (var controller in _userPromptNameControllers.values) {
       controller.dispose();
@@ -175,6 +189,7 @@ class _AISettingsState extends ConsumerState<AISettings> {
     );
 
     final toolDefs = AiToolRegistry.definitions;
+    final toolContext = AiToolContext(ref: ref);
     final enabledToolIds = Prefs().enabledAiToolIds;
 
     final toolsTile = CustomSettingsTile(
@@ -183,6 +198,8 @@ class _AISettingsState extends ConsumerState<AISettings> {
           for (final tool in toolDefs)
             SettingsTile.switchTile(
               initialValue: enabledToolIds.contains(tool.id),
+              enabled: tool.available(toolContext) ||
+                  enabledToolIds.contains(tool.id),
               onToggle: (value) {
                 final next = Set<String>.from(enabledToolIds);
                 if (value) {
@@ -194,7 +211,11 @@ class _AISettingsState extends ConsumerState<AISettings> {
                 setState(() {});
               },
               title: Text(tool.displayName(l10n)),
-              description: Text(tool.description(l10n)),
+              description: Text(
+                tool.id == webSearchToolId && !tool.available(toolContext)
+                    ? '${tool.description(l10n)}\n${l10n.settingsAiWebSearchUnavailableHint}'
+                    : tool.description(l10n),
+              ),
             ),
           Align(
             alignment: Alignment.centerRight,
@@ -251,9 +272,35 @@ class _AISettingsState extends ConsumerState<AISettings> {
         ],
       ),
       SettingsSection(
+        title: Text(l10n.settingsAiWebSearch),
+        tiles: [
+          SettingsTile.navigation(
+            title: Text(l10n.settingsAiWebSearch),
+            description: _buildWebSearchDescription(l10n),
+            onPressed: (context) async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AiWebSearchSettingsPage(),
+                ),
+              );
+              if (mounted) {
+                setState(() {});
+              }
+            },
+          ),
+        ],
+      ),
+      SettingsSection(
         title: Text(L10n.of(context).settingsAiPrompt),
         tiles: [
           promptTile,
+        ],
+      ),
+      SettingsSection(
+        title: Text(L10n.of(context).settingsAiSystemPresets),
+        tiles: [
+          systemPresetsTile(),
         ],
       ),
       SettingsSection(
@@ -344,6 +391,27 @@ class _AISettingsState extends ConsumerState<AISettings> {
       return null;
     }
     return Text(provider.title);
+  }
+
+  Widget _buildWebSearchDescription(L10n l10n) {
+    final config = Prefs().tavilySearchConfig;
+    final status = <String>[
+      config.isConfigured
+          ? l10n.settingsAiWebSearchStatusConfigured
+          : l10n.settingsAiWebSearchStatusMissingKey,
+      Prefs().isAiToolEnabled(webSearchToolId)
+          ? l10n.settingsAiWebSearchStatusToolEnabled
+          : l10n.settingsAiWebSearchStatusToolDisabled,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(status.join(' · ')),
+        const SizedBox(height: 4),
+        Text(config.normalizedBaseUrl),
+      ],
+    );
   }
 
   // AI chat display mode configuration
@@ -441,6 +509,302 @@ class _AISettingsState extends ConsumerState<AISettings> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  AbstractSettingsTile systemPresetsTile() {
+    final presets = ref.watch(aiSystemPresetsProvider);
+    ref.read(aiSystemPresetsProvider.notifier);
+
+    return CustomSettingsTile(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnxButton(
+                  onPressed: _showAddSystemPresetDialog,
+                  child: Text(L10n.of(context).settingsAiSystemPresetsAdd),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        L10n.of(context).settingsAiSystemPresetsHint,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (presets.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Text(
+                  L10n.of(context).settingsAiSystemPresetsEmpty,
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: presets.length,
+              itemBuilder: (context, index) {
+                final preset = presets[index];
+                final isExpanded = _expandedSystemPresetId == preset.id;
+
+                return _buildSystemPresetItem(
+                  preset,
+                  isExpanded,
+                  index,
+                  presets.length,
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSystemPresetItem(
+    preset,
+    bool isExpanded,
+    int index,
+    int totalCount,
+  ) {
+    final notifier = ref.read(aiSystemPresetsProvider.notifier);
+
+    _systemPresetNameControllers.putIfAbsent(
+      preset.id,
+      () => TextEditingController(text: preset.name),
+    );
+    _systemPresetContentControllers.putIfAbsent(
+      preset.id,
+      () => TextEditingController(text: preset.systemPrompt),
+    );
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.withAlpha(100)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Switch(
+                  value: preset.enabled,
+                  onChanged: (_) {
+                    notifier.toggleEnabled(preset.id);
+                  },
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    preset.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(isExpanded ? Icons.expand_less : Icons.edit),
+                  onPressed: () {
+                    setState(() {
+                      _expandedSystemPresetId = isExpanded ? null : preset.id;
+                    });
+                  },
+                  tooltip: L10n.of(context).commonEdit,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_upward, size: 20),
+                  onPressed: index > 0
+                      ? () => notifier.movePreset(preset.id, true)
+                      : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_downward, size: 20),
+                  onPressed: index < totalCount - 1
+                      ? () => notifier.movePreset(preset.id, false)
+                      : null,
+                ),
+              ],
+            ),
+            if (isExpanded) ...[
+              const Divider(height: 16),
+              _buildSystemPresetEditForm(preset),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSystemPresetEditForm(preset) {
+    final notifier = ref.read(aiSystemPresetsProvider.notifier);
+    final nameController = _systemPresetNameControllers[preset.id]!;
+    final contentController = _systemPresetContentControllers[preset.id]!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: nameController,
+          decoration: InputDecoration(
+            labelText: L10n.of(context).settingsAiSystemPresetsName,
+            border: const OutlineInputBorder(),
+          ),
+          maxLength: 50,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: contentController,
+          decoration: InputDecoration(
+            labelText: L10n.of(context).settingsAiSystemPresetsContent,
+            border: const OutlineInputBorder(),
+            alignLabelWithHint: true,
+          ),
+          maxLines: 8,
+          minLines: 5,
+          maxLength: 4000,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            DeleteConfirm(
+              delete: () {
+                notifier.deletePreset(preset.id);
+                _systemPresetNameControllers.remove(preset.id)?.dispose();
+                _systemPresetContentControllers.remove(preset.id)?.dispose();
+                setState(() {
+                  _expandedSystemPresetId = null;
+                });
+              },
+              useTextButton: true,
+            ),
+            TextButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final content = contentController.text.trim();
+
+                if (name.isEmpty || content.isEmpty) {
+                  AnxToast.show(L10n.of(context).commonInputCannotBeEmpty);
+                  return;
+                }
+
+                notifier.updatePreset(
+                  preset.copyWith(
+                    name: name,
+                    systemPrompt: content,
+                  ),
+                );
+
+                setState(() {
+                  _expandedSystemPresetId = null;
+                });
+
+                AnxToast.show(L10n.of(context).commonSaveSuccess);
+              },
+              child: Text(L10n.of(context).commonSave),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showAddSystemPresetDialog() {
+    final notifier = ref.read(aiSystemPresetsProvider.notifier);
+    final nameController = TextEditingController();
+    final contentController = TextEditingController();
+
+    SmartDialog.show(
+      builder: (context) => AlertDialog(
+        title: Text(L10n.of(context).settingsAiSystemPresetsAdd),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: L10n.of(context).settingsAiSystemPresetsName,
+                  border: const OutlineInputBorder(),
+                ),
+                maxLength: 50,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: contentController,
+                decoration: InputDecoration(
+                  labelText: L10n.of(context).settingsAiSystemPresetsContent,
+                  border: const OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+                maxLines: 8,
+                minLines: 5,
+                maxLength: 4000,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              SmartDialog.dismiss();
+              nameController.dispose();
+              contentController.dispose();
+            },
+            child: Text(L10n.of(context).commonCancel),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final content = contentController.text.trim();
+
+              if (name.isEmpty || content.isEmpty) {
+                AnxToast.show(L10n.of(context).commonInputCannotBeEmpty);
+                return;
+              }
+
+              notifier.addPreset(name: name, systemPrompt: content);
+
+              SmartDialog.dismiss();
+              nameController.dispose();
+              contentController.dispose();
+
+              AnxToast.show(L10n.of(context).commonAddSuccess);
+            },
+            child: Text(L10n.of(context).commonConfirm),
+          ),
+        ],
       ),
     );
   }

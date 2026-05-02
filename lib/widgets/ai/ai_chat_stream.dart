@@ -4,16 +4,21 @@ import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/enums/hint_key.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
+import 'package:anx_reader/models/ai_request_context.dart';
 import 'package:anx_reader/models/ai_provider.dart';
+import 'package:anx_reader/models/ai_system_preset.dart';
+import 'package:anx_reader/providers/ai_system_presets.dart';
 import 'package:anx_reader/providers/ai_chat.dart';
 import 'package:anx_reader/providers/ai_history.dart';
 import 'package:anx_reader/providers/ai_providers.dart';
 import 'package:anx_reader/service/ai/ai_services.dart';
 import 'package:anx_reader/service/ai/ai_history.dart';
 import 'package:anx_reader/service/ai/index.dart';
+import 'package:anx_reader/service/ai/one_shot_request_scope.dart';
 import 'package:anx_reader/utils/env_var.dart';
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/utils/ai_reasoning_parser.dart';
+import 'package:anx_reader/widgets/ai/ai_system_preset_picker.dart';
 import 'package:anx_reader/widgets/ai/model_picker_dialog.dart';
 import 'package:anx_reader/widgets/ai/tool_step_tile.dart';
 import 'package:anx_reader/widgets/ai/tool_tiles/apply_book_tags_step_tile.dart';
@@ -38,12 +43,16 @@ class AiChatStream extends ConsumerStatefulWidget {
     this.sendImmediate = false,
     this.quickPromptChips = const [],
     this.trailing,
+    this.initialRequestContext,
+    this.initialSystemPreset,
   });
 
   final String? initialMessage;
   final bool sendImmediate;
   final List<AiQuickPromptChip> quickPromptChips;
   final List<Widget>? trailing;
+  final AiRequestContext? initialRequestContext;
+  final AiSystemPreset? initialSystemPreset;
 
   @override
   ConsumerState<AiChatStream> createState() => AiChatStreamState();
@@ -60,6 +69,7 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
   late List<String> _suggestedPrompts;
   late List<String> _starterPrompts;
   double _fontSize = 14.0;
+  final AiOneShotRequestScope _requestScope = AiOneShotRequestScope();
 
   List<Map<String, String>> _getQuickPrompts(BuildContext context) {
     return [
@@ -105,11 +115,52 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     ];
     _fontSize = Prefs().aiChatFontSize;
     inputController.text = widget.initialMessage ?? '';
+    _requestScope.seed(
+      preset: widget.initialSystemPreset,
+      requestContext: widget.initialRequestContext,
+    );
     _suggestedPrompts = _pickSuggestedPrompts();
     if (widget.sendImmediate) {
       _sendMessage();
     }
     _scrollToBottom();
+  }
+
+  @override
+  void didUpdateWidget(covariant AiChatStream oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final shouldSendImmediately = widget.sendImmediate &&
+        (widget.initialMessage != oldWidget.initialMessage ||
+            widget.initialSystemPreset != oldWidget.initialSystemPreset ||
+            widget.initialRequestContext != oldWidget.initialRequestContext);
+
+    if (widget.initialMessage != oldWidget.initialMessage &&
+        widget.initialMessage != null) {
+      inputController.text = widget.initialMessage!;
+      inputController.selection = TextSelection.fromPosition(
+        TextPosition(offset: inputController.text.length),
+      );
+    }
+
+    if (widget.initialSystemPreset != oldWidget.initialSystemPreset ||
+        widget.initialRequestContext != oldWidget.initialRequestContext) {
+      _requestScope.seed(
+        preset: widget.initialSystemPreset,
+        requestContext: widget.initialRequestContext,
+      );
+      if (mounted) {
+        setState(() {});
+      }
+    }
+
+    if (shouldSendImmediately) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _sendMessage();
+        }
+      });
+    }
   }
 
   @override
@@ -329,11 +380,18 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
 
     ref.read(aiChatProvider.notifier).loadHistoryEntry(entry);
 
+    if (!mounted) {
+      return;
+    }
     setState(() {
+      _requestScope.reset();
       _messageStream = null;
       // reset state when switching service
     });
 
+    if (!context.mounted) {
+      return;
+    }
     Navigator.of(context).pop();
     _scrollToBottom();
   }
@@ -348,6 +406,7 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     if (currentSessionId == entry.id) {
       ref.read(aiChatProvider.notifier).clear();
       setState(() {
+        _requestScope.reset();
         _messageStream = null;
         // reset state when conversation changes
       });
@@ -358,6 +417,7 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     await ref.read(aiHistoryProvider.notifier).clear();
     ref.read(aiChatProvider.notifier).clear();
     setState(() {
+      _requestScope.reset();
       _messageStream = null;
     });
   }
@@ -374,11 +434,14 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     _messageSubscription?.cancel();
     _messageController?.close();
 
+    final requestScope = _requestScope.consume(isRegenerate: isRegenerate);
     final controller = StreamController<List<ChatMessage>>();
     final stream = ref.read(aiChatProvider.notifier).sendMessageStream(
           message,
           ref,
           isRegenerate,
+          temporarySystemPrompt: requestScope.systemPrompt,
+          temporaryContext: requestScope.requestContext,
         );
 
     setState(() {
@@ -431,6 +494,7 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     _messageController?.close();
     _messageController = null;
     setState(() {
+      _requestScope.reset();
       ref.read(aiChatProvider.notifier).clear();
       _messageStream = null;
       _suggestedPrompts = _pickSuggestedPrompts();
@@ -478,6 +542,43 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
       _isStreaming = false;
       _messageStream = null;
     });
+  }
+
+  Future<void> _selectSystemPreset() async {
+    if (_isStreaming) return;
+
+    final presets = ref
+        .read(aiSystemPresetsProvider.notifier)
+        .getEnabledPresets()
+      ..sort((a, b) => a.order.compareTo(b.order));
+    if (presets.isEmpty) {
+      AnxToast.show(L10n.of(context).aiPresetNoEnabled);
+      return;
+    }
+
+    final selected = await showAiSystemPresetPicker(
+      context,
+      presets: presets,
+      selectedPreset: _requestScope.pendingPreset,
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    setState(() {
+      _requestScope.setPendingPreset(selected);
+    });
+  }
+
+  String? _pendingContextLabel() {
+    final selectedText = _requestScope.pendingContext?.selectedText?.trim();
+    if (selectedText == null || selectedText.isEmpty) {
+      return null;
+    }
+    if (selectedText.length <= 18) {
+      return selectedText;
+    }
+    return '${selectedText.substring(0, 18)}...';
   }
 
   void _showFontSizeMenu(BuildContext context) {
@@ -620,6 +721,41 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
       child: SafeArea(
         child: Column(
           children: [
+            if (_requestScope.pendingPreset != null ||
+                _requestScope.pendingContext != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (_requestScope.pendingPreset != null)
+                      InputChip(
+                        avatar: const Icon(Icons.shield_outlined, size: 16),
+                        label: Text(_requestScope.pendingPreset!.name),
+                        onDeleted: _isStreaming
+                            ? null
+                            : () {
+                                setState(() {
+                                  _requestScope.setPendingPreset(null);
+                                });
+                              },
+                      ),
+                    if (_pendingContextLabel() case final label?)
+                      InputChip(
+                        avatar: const Icon(Icons.menu_book_outlined, size: 16),
+                        label: Text(label),
+                        onDeleted: _isStreaming
+                            ? null
+                            : () {
+                                setState(() {
+                                  _requestScope.setPendingContext(null);
+                                });
+                              },
+                      ),
+                  ],
+                ),
+              ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -662,6 +798,16 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
                 Expanded(
                   child: Row(
                     children: [
+                      IconButton(
+                        icon: Icon(
+                          _requestScope.pendingPreset == null
+                              ? Icons.shield_outlined
+                              : Icons.shield,
+                          size: 18,
+                        ),
+                        tooltip: L10n.of(context).aiPreset,
+                        onPressed: _selectSystemPreset,
+                      ),
                       Flexible(child: aiService),
                       if (currentProvider != null)
                         IconButton(

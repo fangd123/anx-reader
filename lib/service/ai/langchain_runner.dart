@@ -102,9 +102,9 @@ class CancelableLangchainRunner {
   Stream<String> streamAgent({
     required BaseChatModel model,
     required List<Tool> tools,
+    required List<ChatMessage> systemMessages,
     required List<ChatMessage> history,
     required String input,
-    ChatMessage? systemMessage,
     int maxIterations = 120,
   }) {
     final controller = StreamController<String>();
@@ -173,7 +173,7 @@ class CancelableLangchainRunner {
 
       List<ChatMessage> buildConversation() {
         return <ChatMessage>[
-          if (systemMessage != null) systemMessage,
+          ...systemMessages,
           ...history,
           ChatMessage.humanText(input),
           ...buildScratchpad(),

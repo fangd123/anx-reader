@@ -21,6 +21,8 @@ import 'package:anx_reader/service/ai/tools/repository/groups_repository.dart';
 import 'package:anx_reader/service/ai/tools/repository/notes_repository.dart';
 import 'package:anx_reader/service/ai/tools/repository/reading_history_repository.dart';
 import 'package:anx_reader/service/ai/tools/repository/tag_repository.dart';
+import 'package:anx_reader/service/ai/tools/repository/tavily_search_repository.dart';
+import 'package:anx_reader/service/ai/tools/web_search_tool.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:langchain_core/tools.dart';
 
@@ -38,6 +40,8 @@ class AiToolContext {
   late final ReadingHistoryRepository readingHistoryRepository =
       ReadingHistoryRepository();
   late final TagRepository tagRepository = TagRepository();
+  late final TavilySearchRepository tavilySearchRepository =
+      TavilySearchRepository();
 
   bool get isReading => ref.read(currentReadingProvider).isReading;
 }
@@ -48,12 +52,16 @@ class AiToolDefinition {
     required this.displayNameBuilder,
     required this.descriptionBuilder,
     required this.build,
+    this.isAvailable,
+    this.enabledByDefault = true,
   });
 
   final String id;
   final String Function(L10n l10n) displayNameBuilder;
   final String Function(L10n l10n) descriptionBuilder;
   final Tool Function(AiToolContext context) build;
+  final bool Function(AiToolContext context)? isAvailable;
+  final bool enabledByDefault;
 
   String displayName(L10n l10n) => displayNameBuilder(l10n);
 
@@ -64,12 +72,15 @@ class AiToolDefinition {
 
   String descriptionOrDefault([L10n? l10n]) =>
       l10n == null ? '' : description(l10n);
+
+  bool available(AiToolContext context) => isAvailable?.call(context) ?? true;
 }
 
 class AiToolRegistry {
   static final List<AiToolDefinition> _definitions = [
     calculatorToolDefinition,
     currentTimeToolDefinition,
+    webSearchToolDefinition,
     mindmapToolDefinition,
     bookContentSearchToolDefinition,
     bookshelfLookupToolDefinition,
@@ -94,8 +105,10 @@ class AiToolRegistry {
 
   static AiToolDefinition? byId(String id) => _definitionMap[id];
 
-  static List<String> defaultEnabledToolIds() =>
-      _definitions.map((def) => def.id).toList(growable: false);
+  static List<String> defaultEnabledToolIds() => _definitions
+      .where((def) => def.enabledByDefault)
+      .map((def) => def.id)
+      .toList(growable: false);
 
   static List<String> sanitizeIds(List<String> ids) {
     final seen = <String>{};
@@ -114,7 +127,7 @@ class AiToolRegistry {
   ) {
     final enabled = enabledIds.toSet();
     return _definitions
-        .where((def) => enabled.contains(def.id))
+        .where((def) => enabled.contains(def.id) && def.available(context))
         .map((def) => def.build(context))
         .toList(growable: false);
   }

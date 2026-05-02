@@ -32,6 +32,8 @@ import 'package:anx_reader/models/opds_catalog.dart';
 import 'package:anx_reader/models/read_theme.dart';
 import 'package:anx_reader/models/reading_info.dart';
 import 'package:anx_reader/models/reading_rules.dart';
+import 'package:anx_reader/models/ai_system_preset.dart';
+import 'package:anx_reader/models/tavily_search_config.dart';
 import 'package:anx_reader/models/user_prompt.dart';
 import 'package:anx_reader/widgets/statistic/dashboard_tiles/dashboard_tile_registry.dart';
 import 'package:anx_reader/models/window_info.dart';
@@ -71,6 +73,8 @@ class Prefs extends ChangeNotifier {
   static const String _statisticsDashboardTilesKey = 'statisticsDashboardTiles';
   static const String _enabledAiToolsKey = 'enabledAiTools';
   static const String _userPromptsKey = 'userPrompts';
+  static const String _aiSystemPresetsKey = 'aiSystemPresets';
+  static const String _tavilySearchConfigKey = 'tavilySearchConfig';
 
   Future<void> initPrefs() async {
     prefs = await SharedPreferences.getInstance();
@@ -983,6 +987,53 @@ class Prefs extends ChangeNotifier {
   set userPrompts(List<UserPrompt> prompts) {
     final jsonList = prompts.map((p) => p.toJson()).toList();
     prefs.setString(_userPromptsKey, jsonEncode(jsonList));
+    notifyListeners();
+  }
+
+  List<AiSystemPreset> get aiSystemPresets {
+    final jsonString = prefs.getString(_aiSystemPresetsKey);
+    if (jsonString == null || jsonString.isEmpty) return [];
+
+    try {
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      return jsonList
+          .map((json) => AiSystemPreset.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      AnxLog.severe('Error loading AI system presets: $e');
+      return [];
+    }
+  }
+
+  set aiSystemPresets(List<AiSystemPreset> presets) {
+    final jsonList = presets.map((preset) => preset.toJson()).toList();
+    prefs.setString(_aiSystemPresetsKey, jsonEncode(jsonList));
+    notifyListeners();
+  }
+
+  TavilySearchConfig get tavilySearchConfig {
+    final jsonString = prefs.getString(_tavilySearchConfigKey);
+    if (jsonString == null || jsonString.isEmpty) {
+      return const TavilySearchConfig();
+    }
+
+    try {
+      final json = jsonDecode(jsonString);
+      if (json is Map<String, dynamic>) {
+        return TavilySearchConfig.fromJson(json);
+      }
+      if (json is Map) {
+        return TavilySearchConfig.fromJson(Map<String, dynamic>.from(json));
+      }
+    } catch (e) {
+      AnxLog.severe('Error loading Tavily search config: $e');
+    }
+
+    return const TavilySearchConfig();
+  }
+
+  set tavilySearchConfig(TavilySearchConfig config) {
+    prefs.setString(_tavilySearchConfigKey, jsonEncode(config.toJson()));
     notifyListeners();
   }
 

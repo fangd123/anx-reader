@@ -3,11 +3,13 @@ import 'package:anx_reader/constants/note_annotations.dart';
 import 'package:anx_reader/dao/book_note.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
+import 'package:anx_reader/models/ai_system_preset.dart';
 import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/service/tts/tts_handler.dart';
 import 'package:anx_reader/utils/env_var.dart';
 import 'package:anx_reader/utils/toast/common.dart';
+import 'package:anx_reader/widgets/ai/ai_system_preset_picker.dart';
 import 'package:anx_reader/widgets/book_share/excerpt_share_service.dart';
 import 'package:anx_reader/widgets/common/axis_flex.dart';
 import 'package:anx_reader/widgets/icon_and_text.dart';
@@ -29,6 +31,7 @@ class ExcerptMenu extends StatefulWidget {
   final void Function(int noteId) onNoteCreated;
   final Axis axis;
   final bool reverse;
+  final String? contextText;
 
   const ExcerptMenu({
     super.key,
@@ -44,6 +47,7 @@ class ExcerptMenu extends StatefulWidget {
     required this.onNoteCreated,
     required this.axis,
     required this.reverse,
+    this.contextText,
   });
 
   @override
@@ -150,6 +154,12 @@ class ExcerptMenuState extends State<ExcerptMenu> {
     }
 
     return bookNote;
+  }
+
+  Future<List<AiSystemPreset>> _enabledSystemPresets() async {
+    final presets = List<AiSystemPreset>.from(Prefs().aiSystemPresets)
+      ..sort((a, b) => a.order.compareTo(b.order));
+    return presets.where((preset) => preset.enabled).toList(growable: false);
   }
 
   Icon deleteIcon() {
@@ -348,6 +358,8 @@ class ExcerptMenuState extends State<ExcerptMenu> {
                   key.showAiChat(
                     content: widget.annoContent,
                     sendImmediate: false,
+                    selectedText: widget.annoContent,
+                    contextText: widget.contextText,
                   );
                   key.aiChatKey.currentState?.inputController.text =
                       widget.annoContent;
@@ -355,6 +367,42 @@ class ExcerptMenuState extends State<ExcerptMenu> {
               },
               icon: const Icon(EvaIcons.message_circle_outline),
               text: L10n.of(context).navBarAI,
+            ),
+          if (EnvVar.enableAIFeature)
+            IconAndText(
+              compact: true,
+              onTap: () async {
+                final noEnabledPresetMessage =
+                    L10n.of(context).aiPresetNoEnabled;
+                final presets = await _enabledSystemPresets();
+                if (!mounted) return;
+                if (presets.isEmpty) {
+                  AnxToast.show(noEnabledPresetMessage);
+                  return;
+                }
+
+                widget.onClose();
+                final preset = await showAiSystemPresetPicker(
+                  navigatorKey.currentContext!,
+                  presets: presets,
+                );
+                if (!mounted || preset == null) {
+                  return;
+                }
+
+                final key = readingPageKey.currentState;
+                if (key != null) {
+                  key.showAiChat(
+                    content: widget.annoContent,
+                    sendImmediate: true,
+                    selectedText: widget.annoContent,
+                    contextText: widget.contextText,
+                    systemPreset: preset,
+                  );
+                }
+              },
+              icon: const Icon(Icons.shield_outlined),
+              text: L10n.of(context).aiPreset,
             ),
           // share
           IconAndText(

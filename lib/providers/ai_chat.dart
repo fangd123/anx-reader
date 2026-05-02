@@ -1,4 +1,5 @@
 import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/models/ai_request_context.dart';
 import 'package:anx_reader/providers/ai_history.dart';
 import 'package:anx_reader/service/ai/ai_history.dart';
 import 'package:anx_reader/service/ai/index.dart';
@@ -12,10 +13,14 @@ part 'ai_chat.g.dart';
 @Riverpod(keepAlive: true)
 class AiChat extends _$AiChat {
   String? _currentSessionId;
+  String? _lastTemporarySystemPrompt;
+  AiRequestContext? _lastTemporaryContext;
 
   @override
   FutureOr<List<ChatMessage>> build() async {
     _currentSessionId = null;
+    _lastTemporarySystemPrompt = null;
+    _lastTemporaryContext = null;
     return List<ChatMessage>.empty();
   }
 
@@ -30,14 +35,18 @@ class AiChat extends _$AiChat {
     if (sessionId != null) {
       _currentSessionId = sessionId;
     }
+    _lastTemporarySystemPrompt = null;
+    _lastTemporaryContext = null;
     state = AsyncData(history);
   }
 
   Stream<List<ChatMessage>> sendMessageStream(
     String message,
     WidgetRef widgetRef,
-    bool isRegenerate,
-  ) async* {
+    bool isRegenerate, {
+    String? temporarySystemPrompt,
+    AiRequestContext? temporaryContext,
+  }) async* {
     final sessionId = _ensureSessionId();
     final serviceId = Prefs().selectedAiService;
     final config = Prefs().getAiConfig(serviceId);
@@ -90,11 +99,24 @@ class AiChat extends _$AiChat {
 
     String assistantResponse = "";
     try {
+      final effectiveTemporarySystemPrompt = isRegenerate
+          ? temporarySystemPrompt ?? _lastTemporarySystemPrompt
+          : temporarySystemPrompt;
+      final effectiveTemporaryContext = isRegenerate
+          ? temporaryContext ?? _lastTemporaryContext
+          : temporaryContext;
+      if (!isRegenerate) {
+        _lastTemporarySystemPrompt = effectiveTemporarySystemPrompt;
+        _lastTemporaryContext = effectiveTemporaryContext;
+      }
+
       await for (final chunk in aiGenerateStream(
         messages,
         regenerate: isRegenerate,
         useAgent: true,
         ref: widgetRef,
+        temporarySystemPrompt: effectiveTemporarySystemPrompt,
+        temporaryContext: effectiveTemporaryContext,
       )) {
         assistantResponse = chunk;
 
@@ -129,10 +151,14 @@ class AiChat extends _$AiChat {
   void clear() {
     state = AsyncData(List<ChatMessage>.empty());
     _currentSessionId = null;
+    _lastTemporarySystemPrompt = null;
+    _lastTemporaryContext = null;
   }
 
   void loadHistoryEntry(AiChatHistoryEntry entry) {
     _currentSessionId = entry.id;
+    _lastTemporarySystemPrompt = null;
+    _lastTemporaryContext = null;
     state = AsyncData(List<ChatMessage>.from(entry.messages));
   }
 

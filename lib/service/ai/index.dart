@@ -12,11 +12,13 @@ import 'package:anx_reader/service/ai/deepseek_support.dart';
 import 'package:anx_reader/service/ai/langchain_ai_config.dart';
 import 'package:anx_reader/service/ai/langchain_registry.dart';
 import 'package:anx_reader/service/ai/langchain_runner.dart';
+import 'package:anx_reader/service/ai/request_message_builder.dart';
 import 'package:anx_reader/utils/ai_reasoning_parser.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:langchain_core/chat_models.dart';
 import 'package:langchain_core/prompts.dart';
+import 'package:anx_reader/models/ai_request_context.dart';
 
 final CancelableLangchainRunner _runner = CancelableLangchainRunner();
 
@@ -51,6 +53,8 @@ Stream<String> aiGenerateStream(
   bool regenerate = false,
   bool useAgent = false,
   WidgetRef? ref,
+  String? temporarySystemPrompt,
+  AiRequestContext? temporaryContext,
 }) {
   if (useAgent) {
     assert(ref != null, 'ref must be provided when useAgent is true');
@@ -63,7 +67,9 @@ Stream<String> aiGenerateStream(
       overrideConfig: config,
       regenerate: regenerate,
       useAgent: useAgent,
-      registry: registry);
+      registry: registry,
+      temporarySystemPrompt: temporarySystemPrompt,
+      temporaryContext: temporaryContext);
 }
 
 void cancelActiveAiRequest() {
@@ -77,6 +83,8 @@ Stream<String> _generateStream({
   required bool regenerate,
   required bool useAgent,
   required LangchainAiRegistry registry,
+  String? temporarySystemPrompt,
+  AiRequestContext? temporaryContext,
 }) async* {
   AnxLog.info('aiGenerateStream called identifier: $identifier');
   LangchainAiConfig config;
@@ -120,6 +128,10 @@ Stream<String> _generateStream({
             pipeline: pipeline,
             sanitizedMessages: sanitizedMessages,
             useAgent: useAgent,
+            requestScopedSystemMessages: buildRequestScopedSystemMessages(
+              temporarySystemPrompt: temporarySystemPrompt,
+              temporaryContext: temporaryContext,
+            ),
           );
 
           // Advance key index for round-robin rotation after successful call
@@ -192,6 +204,10 @@ Stream<String> _generateStream({
               pipeline: pipeline,
               sanitizedMessages: sanitizedMessages,
               useAgent: useAgent,
+              requestScopedSystemMessages: buildRequestScopedSystemMessages(
+                temporarySystemPrompt: temporarySystemPrompt,
+                temporaryContext: temporaryContext,
+              ),
             );
 
             // Advance key index in persistent storage for round-robin rotation
@@ -250,6 +266,10 @@ Stream<String> _generateStream({
     pipeline: pipeline,
     sanitizedMessages: sanitizedMessages,
     useAgent: useAgent,
+    requestScopedSystemMessages: buildRequestScopedSystemMessages(
+      temporarySystemPrompt: temporarySystemPrompt,
+      temporaryContext: temporaryContext,
+    ),
   );
 }
 
@@ -259,6 +279,7 @@ Stream<String> _executeStream({
   required LangchainPipeline pipeline,
   required List<ChatMessage> sanitizedMessages,
   required bool useAgent,
+  required List<ChatMessage> requestScopedSystemMessages,
 }) async* {
   Stream<String> stream;
   if (useAgent) {
@@ -281,12 +302,19 @@ Stream<String> _executeStream({
     stream = _runner.streamAgent(
       model: model,
       tools: tools,
+      systemMessages: [
+        if (pipeline.systemMessage != null) pipeline.systemMessage!,
+        ...requestScopedSystemMessages,
+      ],
       history: historyMessages,
       input: inputMessage,
-      systemMessage: pipeline.systemMessage,
     );
   } else {
-    final prompt = PromptValue.chat(sanitizedMessages);
+    final prompt = PromptValue.chat(
+      requestScopedSystemMessages.isEmpty
+          ? sanitizedMessages
+          : [...requestScopedSystemMessages, ...sanitizedMessages],
+    );
     stream = _runner.stream(model: model, prompt: prompt);
   }
 
