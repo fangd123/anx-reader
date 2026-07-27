@@ -1,26 +1,36 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/service/tts/models/tts_voice.dart';
 import 'package:anx_reader/service/tts/tts_service.dart';
 import 'package:anx_reader/service/tts/tts_service_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
 class OpenAiTtsProvider extends TtsServiceProvider {
-  static final OpenAiTtsProvider _instance = OpenAiTtsProvider._internal();
+  static final OpenAiTtsProvider _instance =
+      OpenAiTtsProvider._internal(http.Client());
+
+  final http.Client _client;
 
   factory OpenAiTtsProvider() {
     return _instance;
   }
 
-  OpenAiTtsProvider._internal();
+  OpenAiTtsProvider._internal(this._client);
 
-  static const String _defaultUrl = 'https://api.openai.com/v1/audio/speech';
-  static const String _defaultModel = 'gpt-4o-mini-tts';
-  static const String _defaultVoice = 'alloy';
+  @visibleForTesting
+  OpenAiTtsProvider.withClient(this._client);
+
+  static const String _defaultUrl =
+      'https://tts.wangwangit.com/v1/audio/speech';
+  static const String _defaultVoice = 'zh-CN-XiaoxiaoNeural';
+  static const double _minSpeed = 0.5;
+  static const double _maxSpeed = 2.0;
+  static const double _minPitch = -50.0;
+  static const double _maxPitch = 50.0;
 
   @override
   TtsService get service => TtsService.openai;
@@ -36,8 +46,8 @@ class OpenAiTtsProvider extends TtsServiceProvider {
         key: 'tip',
         label: L10n.of(context).translateTip,
         type: ConfigItemType.tip,
-        defaultValue: L10n.of(context).settingsNarrateOpenAiHelpText,
-        link: 'https://anx.anxcye.com/docs/tts/openai',
+        defaultValue: 'VoiceCraft OpenAI-compatible TTS',
+        link: 'https://github.com/wangwangit/tts',
       ),
       ConfigItem(
         key: 'url',
@@ -47,20 +57,6 @@ class OpenAiTtsProvider extends TtsServiceProvider {
         defaultValue: _defaultUrl,
       ),
       ConfigItem(
-        key: 'key',
-        label: 'API Key',
-        description: L10n.of(context).settingsNarrateOpenAiKeyDescription,
-        type: ConfigItemType.password,
-        defaultValue: '',
-      ),
-      ConfigItem(
-        key: 'model',
-        label: 'Model',
-        description: L10n.of(context).settingsNarrateOpenAiModelDescription,
-        type: ConfigItemType.text,
-        defaultValue: _defaultModel,
-      ),
-      ConfigItem(
         key: 'voice',
         label: 'Voice',
         description: L10n.of(context).settingsNarrateOpenAiVoiceDescription,
@@ -68,12 +64,34 @@ class OpenAiTtsProvider extends TtsServiceProvider {
         defaultValue: _defaultVoice,
       ),
       ConfigItem(
-        key: 'instructions',
-        label: 'Instructions',
-        description:
-            L10n.of(context).settingsNarrateOpenAiInstructionsDescription,
-        type: ConfigItemType.text,
+        key: 'pitch',
+        label: 'Pitch',
+        description: 'Optional (-50 to 50)',
+        type: ConfigItemType.number,
         defaultValue: '',
+        min: _minPitch,
+        max: _maxPitch,
+      ),
+      ConfigItem(
+        key: 'style',
+        label: 'Style',
+        description: 'Optional voice style',
+        type: ConfigItemType.select,
+        defaultValue: '',
+        options: [
+          {'label': L10n.of(context).commonNotSet, 'value': ''},
+          {'label': 'General', 'value': 'general'},
+          {'label': 'Assistant', 'value': 'assistant'},
+          {'label': 'Chat', 'value': 'chat'},
+          {'label': 'Customer service', 'value': 'customerservice'},
+          {'label': 'Newscast', 'value': 'newscast'},
+          {'label': 'Affectionate', 'value': 'affectionate'},
+          {'label': 'Calm', 'value': 'calm'},
+          {'label': 'Cheerful', 'value': 'cheerful'},
+          {'label': 'Gentle', 'value': 'gentle'},
+          {'label': 'Lyrical', 'value': 'lyrical'},
+          {'label': 'Serious', 'value': 'serious'},
+        ],
       ),
     ];
   }
@@ -84,18 +102,16 @@ class OpenAiTtsProvider extends TtsServiceProvider {
     if (config.isEmpty) {
       return {
         'url': _defaultUrl,
-        'key': '',
-        'model': _defaultModel,
         'voice': _defaultVoice,
-        'instructions': '',
+        'pitch': '',
+        'style': '',
       };
     }
     return {
       'url': config['url'] ?? _defaultUrl,
-      'key': config['key'] ?? '',
-      'model': config['model'] ?? _defaultModel,
       'voice': config['voice'] ?? _defaultVoice,
-      'instructions': config['instructions'] ?? '',
+      'pitch': config['pitch'] ?? '',
+      'style': config['style'] ?? '',
     };
   }
 
@@ -109,32 +125,20 @@ class OpenAiTtsProvider extends TtsServiceProvider {
       String text, String? voice, double rate, double pitch) async {
     final config = getConfig();
     final String url = config['url']?.toString().trim() ?? _defaultUrl;
-    final String? key = config['key']?.toString();
-    final String model = config['model']?.toString().trim() ?? _defaultModel;
     final String resolvedVoice = resolveVoice(voice);
+    final double speed = _normalizeSpeed(rate);
+    final String? configuredPitch = _normalizePitch(config['pitch']);
+    final String? style = _optionalString(config['style']);
 
-    if (key == null || key.isEmpty) {
-      throw Exception('OpenAI TTS config missing (key)');
-    }
-
-    final instructions = _buildInstructions(
-      config['instructions']?.toString(),
-      rate,
-      pitch,
-    );
-
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $key',
-        'Content-Type': 'application/json',
-      },
+      headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'model': model,
-        'voice': resolvedVoice,
         'input': text,
-        if (instructions.isNotEmpty) 'instructions': instructions,
-        'response_format': 'mp3',
+        'voice': resolvedVoice,
+        'speed': speed,
+        if (configuredPitch != null) 'pitch': configuredPitch,
+        if (style != null) 'style': style,
       }),
     );
 
@@ -146,28 +150,137 @@ class OpenAiTtsProvider extends TtsServiceProvider {
         'OpenAI TTS failed: ${response.statusCode} ${response.body}');
   }
 
-  String _buildInstructions(String? base, double rate, double pitch) {
-    final buffer = StringBuffer();
-    if (base != null && base.trim().isNotEmpty) {
-      buffer.writeln(base.trim());
-    }
-    buffer.writeln('Please speak at a speed of ${rate.toStringAsFixed(2)}x.');
-    buffer.writeln('Please use a pitch of ${pitch.toStringAsFixed(2)}x.');
-    return buffer.toString().trim();
+  double _normalizeSpeed(double rate) {
+    if (!rate.isFinite) return 1.0;
+    return rate.clamp(_minSpeed, _maxSpeed).toDouble();
+  }
+
+  String? _normalizePitch(dynamic value) {
+    final raw = _optionalString(value);
+    if (raw == null) return null;
+
+    final parsed = double.tryParse(raw);
+    if (parsed == null || !parsed.isFinite) return null;
+
+    final pitch = parsed.clamp(_minPitch, _maxPitch).toDouble();
+    return pitch == pitch.roundToDouble()
+        ? pitch.toInt().toString()
+        : pitch.toString();
+  }
+
+  String? _optionalString(dynamic value) {
+    final normalized = value?.toString().trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
   }
 
   @override
   Future<List<TtsVoice>> getVoices() async {
     return const [
-      TtsVoice(shortName: 'alloy', name: 'Alloy', locale: 'en-US'),
-      TtsVoice(shortName: 'ash', name: 'Ash', locale: 'en-US'),
-      TtsVoice(shortName: 'coral', name: 'Coral', locale: 'en-US'),
-      TtsVoice(shortName: 'echo', name: 'Echo', locale: 'en-US'),
-      TtsVoice(shortName: 'fable', name: 'Fable', locale: 'en-US'),
-      TtsVoice(shortName: 'nova', name: 'Nova', locale: 'en-US'),
-      TtsVoice(shortName: 'onyx', name: 'Onyx', locale: 'en-US'),
-      TtsVoice(shortName: 'sage', name: 'Sage', locale: 'en-US'),
-      TtsVoice(shortName: 'shimmer', name: 'Shimmer', locale: 'en-US'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaoxiaoNeural',
+          name: 'Xiaoxiao',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaoyiNeural',
+          name: 'Xiaoyi',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaochenNeural',
+          name: 'Xiaochen',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaohanNeural',
+          name: 'Xiaohan',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaomengNeural',
+          name: 'Xiaomeng',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaomoNeural',
+          name: 'Xiaomo',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaoqiuNeural',
+          name: 'Xiaoqiu',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaoruiNeural',
+          name: 'Xiaorui',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaoshuangNeural',
+          name: 'Xiaoshuang',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaoxuanNeural',
+          name: 'Xiaoxuan',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaoyanNeural',
+          name: 'Xiaoyan',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaoyouNeural',
+          name: 'Xiaoyou',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-XiaozhenNeural',
+          name: 'Xiaozhen',
+          locale: 'zh-CN',
+          gender: 'Female'),
+      TtsVoice(
+          shortName: 'zh-CN-YunxiNeural',
+          name: 'Yunxi',
+          locale: 'zh-CN',
+          gender: 'Male'),
+      TtsVoice(
+          shortName: 'zh-CN-YunyangNeural',
+          name: 'Yunyang',
+          locale: 'zh-CN',
+          gender: 'Male'),
+      TtsVoice(
+          shortName: 'zh-CN-YunjianNeural',
+          name: 'Yunjian',
+          locale: 'zh-CN',
+          gender: 'Male'),
+      TtsVoice(
+          shortName: 'zh-CN-YunfengNeural',
+          name: 'Yunfeng',
+          locale: 'zh-CN',
+          gender: 'Male'),
+      TtsVoice(
+          shortName: 'zh-CN-YunhaoNeural',
+          name: 'Yunhao',
+          locale: 'zh-CN',
+          gender: 'Male'),
+      TtsVoice(
+          shortName: 'zh-CN-YunxiaNeural',
+          name: 'Yunxia',
+          locale: 'zh-CN',
+          gender: 'Male'),
+      TtsVoice(
+          shortName: 'zh-CN-YunyeNeural',
+          name: 'Yunye',
+          locale: 'zh-CN',
+          gender: 'Male'),
+      TtsVoice(
+          shortName: 'zh-CN-YunzeNeural',
+          name: 'Yunze',
+          locale: 'zh-CN',
+          gender: 'Male'),
     ];
   }
 

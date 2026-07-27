@@ -117,15 +117,23 @@ class _ServiceConfigFormState extends State<ServiceConfigForm> {
             helperText: item.description,
             border: const OutlineInputBorder(),
           ),
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.numberWithOptions(
+            signed: (item.min ?? 0) < 0,
+            decimal: true,
+          ),
           controller: TextEditingController(
             text: _currentConfig[item.key]?.toString() ??
                 item.defaultValue?.toString() ??
                 '',
           )..selection = TextSelection.collapsed(
               offset: _currentConfig[item.key]?.toString().length ?? 0),
-          onChanged: (value) =>
-              _updateConfig(item.key, int.tryParse(value) ?? 0),
+          onChanged: (value) {
+            final normalized = value.trim();
+            _updateConfig(
+              item.key,
+              normalized.isEmpty ? '' : num.tryParse(normalized) ?? normalized,
+            );
+          },
         );
 
       case ConfigItemType.range:
